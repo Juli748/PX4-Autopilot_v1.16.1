@@ -1,0 +1,8 @@
+module_name: SRXL2 RC Input Driver
+serial_config:
+    - command: "srxl2_rc start -d ${SERIAL_DEV}"
+      port_config_param:
+        name: RC_SRXL2_PRT_CFG
+        group: Serial
+        description_extended: |
+            Spektrum SRXL2 RC driver.

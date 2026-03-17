@@ -1,0 +1,5 @@
+menuconfig DRIVERS_RC_SRXL2_RC
+	bool "srxl2_rc"
+	default y
+	---help---
+		Enable support for Spektrum SRXL2 RC input.

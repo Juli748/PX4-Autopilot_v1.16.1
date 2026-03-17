@@ -15,6 +15,7 @@
 #include <lib/rc/sumd.h>
 #include <lib/rc/crsf.h>
 #include <lib/rc/ghst.hpp>
+#include <lib/rc/srxl2.h>
 
 #if defined(CONFIG_ARCH_BOARD_PX4_SITL)
 #define TEST_DATA_PATH "./test_data/"
@@ -32,6 +33,7 @@ public:
 private:
 	bool crsfTest();
 	bool ghstTest();
+	bool srxl2Test();
 	bool dsmTest(const char *filepath, unsigned expected_chancount, unsigned expected_dropcount, unsigned chan0);
 	bool dsmTest10Ch();
 	bool dsmTest16Ch();
@@ -46,6 +48,7 @@ bool RCTest::run_tests()
 {
 	ut_run_test(crsfTest);
 	ut_run_test(ghstTest);
+	ut_run_test(srxl2Test);
 	ut_run_test(dsmTest10Ch);
 	ut_run_test(dsmTest16Ch);
 	ut_run_test(dsmTest22msDSMX16Ch);
@@ -226,6 +229,91 @@ bool RCTest::ghstTest()
 		}
 
 		++line_counter;
+	}
+
+	return true;
+}
+
+bool RCTest::srxl2Test()
+{
+	{
+		uint8_t packet_buf[SRXL2_PACKET_LENGTH_MAX] {};
+		const uint32_t uid = 0x12345678;
+		const size_t packet_len = srxl2_build_handshake_packet(packet_buf, sizeof(packet_buf),
+					  SRXL2_DEVICE_ID_FC_DEFAULT, 0x21, 10, 1, 0x03, uid);
+
+		ut_compare("Handshake packet length", 14, packet_len);
+
+		srxl2_reset_parser();
+		srxl2_packet_t packet {};
+		bool parsed = false;
+
+		for (size_t i = 0; i < packet_len; ++i) {
+			if (srxl2_parse_byte(packet_buf[i], &packet)) {
+				parsed = true;
+			}
+		}
+
+		ut_test(parsed);
+		ut_compare("Wrong packet type", SRXL2_PACKET_TYPE_HANDSHAKE, packet.packet_type);
+		ut_compare("Wrong src id", SRXL2_DEVICE_ID_FC_DEFAULT, packet.src_id);
+		ut_compare("Wrong dest id", 0x21, packet.dest_id);
+		ut_compare("Wrong priority", 10, packet.priority);
+		ut_compare("Wrong baud support", 1, packet.baud_support);
+		ut_compare("Wrong info", 0x03, packet.info);
+		ut_compare("Wrong uid", uid, packet.uid);
+	}
+
+	{
+		uint8_t packet_buf[] {
+			SRXL2_ID,
+			SRXL2_PACKET_TYPE_CONTROL_DATA,
+			0x1C,
+			SRXL2_CONTROL_CMD_CHANNEL_DATA,
+			SRXL2_DEVICE_ID_FC_DEFAULT,
+			0x58,
+			0x0B, 0x00,
+			0x37, 0x06, 0x00, 0x00,
+			0xA0, 0x2A,
+			0x00, 0x80,
+			0x04, 0x80,
+			0xFC, 0x7F,
+			0x54, 0xD5,
+			0xA0, 0x2A,
+			0xA0, 0x2A,
+			0x00, 0x00
+		};
+
+		const uint16_t crc = srxl2_crc16(packet_buf, sizeof(packet_buf) - 2);
+		packet_buf[sizeof(packet_buf) - 2] = crc >> 8;
+		packet_buf[sizeof(packet_buf) - 1] = crc & 0xFF;
+
+		srxl2_reset_parser();
+		srxl2_packet_t packet {};
+		bool parsed = false;
+
+		for (size_t i = 0; i < sizeof(packet_buf); ++i) {
+			if (srxl2_parse_byte(packet_buf[i], &packet)) {
+				parsed = true;
+			}
+		}
+
+		ut_test(parsed);
+		ut_compare("Wrong packet type", SRXL2_PACKET_TYPE_CONTROL_DATA, packet.packet_type);
+		ut_compare("Wrong command", SRXL2_CONTROL_CMD_CHANNEL_DATA, packet.control_command);
+		ut_compare("Wrong reply id", SRXL2_DEVICE_ID_FC_DEFAULT, packet.reply_id);
+		ut_compare("Wrong RSSI", 0x58, packet.rssi);
+		ut_compare("Wrong frame loss count", 11, packet.frame_loss_count);
+		ut_compare("Wrong channel mask", 0x00000637, packet.channel_mask);
+		ut_compare("Wrong channel count", 7, packet.num_channels);
+		ut_compare("Wrong channel 1", 0x2AA0, packet.channel_data[0]);
+		ut_compare("Wrong channel 2", 0x8000, packet.channel_data[1]);
+		ut_compare("Wrong channel 3", 0x8004, packet.channel_data[2]);
+		ut_compare("Wrong channel 5", 0x7FFC, packet.channel_data[3]);
+		ut_compare("Wrong channel 6", 0xD554, packet.channel_data[4]);
+		ut_compare("Wrong channel 10", 0x2AA0, packet.channel_data[5]);
+		ut_compare("Wrong channel 11", 0x2AA0, packet.channel_data[6]);
+		ut_compare("Wrong PWM conversion", 1500, srxl2_raw_to_pwm(0x8000));
 	}
 
 	return true;
