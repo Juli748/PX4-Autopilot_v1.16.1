@@ -45,6 +45,12 @@ using namespace time_literals;
 
 ModuleBase::Descriptor Srxl2Rc::desc{task_spawn, custom_command, print_usage};
 
+namespace
+{
+constexpr hrt_abstime SRXL2_DISCOVERY_DWELL_TIME{50_ms};
+constexpr uint8_t SRXL2_TELEMETRY_PRIORITY_NONE{0};
+}
+
 Srxl2Rc::Srxl2Rc(const char *device) :
 	ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(device))
 {
@@ -105,11 +111,6 @@ int Srxl2Rc::task_spawn(int argc, char *argv[])
 		return PX4_ERROR;
 	}
 
-	if (board_rc_conflicting(device_name)) {
-		PX4_INFO("unable to start, conflict with PX4IO on %s", device_name);
-		return PX4_ERROR;
-	}
-
 	Srxl2Rc *instance = new Srxl2Rc(device_name);
 
 	if (instance == nullptr) {
@@ -154,14 +155,24 @@ bool Srxl2Rc::init_uart()
 	}
 
 	if (board_rc_swap_rxtx(_device)) {
-		_uart->setSwapRxTxMode();
+		_swap_rxtx_enabled = _uart->setSwapRxTxMode();
 	}
 
-	if (board_rc_singlewire(_device)) {
-		_uart->setSingleWireMode();
+	// SRXL2 is a half-duplex bus, so request single-wire mode on any UART
+	// the driver is attached to instead of only board-designated RC ports.
+	if (!_uart->getSingleWireMode()) {
+		_singlewire_enabled = _uart->setSingleWireMode();
+
+	} else {
+		_singlewire_enabled = true;
+	}
+
+	if (!_singlewire_enabled) {
+		PX4_WARN("single-wire mode unavailable on %s", _device);
 	}
 
 	srxl2_reset_parser();
+	srxl2_reset_diagnostics();
 	_uart->flush();
 	restart_discovery();
 	return true;
@@ -197,7 +208,11 @@ void Srxl2Rc::restart_discovery()
 	_last_startup_handshake = 0;
 	_baud_set_time = _discovery_start;
 	_current_baudrate = SRXL2_BAUD_115200;
+	_handshake_unprompted_count = 0;
+	_handshake_targeted_count = 0;
+	_handshake_broadcast_count = 0;
 	srxl2_reset_parser();
+	srxl2_reset_diagnostics();
 
 	if (_uart && _uart->isOpen()) {
 		_uart->setBaudrate(SRXL2_BAUD_115200);
@@ -221,7 +236,14 @@ void Srxl2Rc::maybe_send_startup_handshake(const hrt_abstime now)
 		return;
 	}
 
-	if (now - _discovery_start > 200_ms) {
+	// Per the SRXL2 startup sequence, a non-master device first listens
+	// for 50 ms, then announces itself at 50 ms intervals on 115200 baud
+	// until the bus master begins directed handshake traffic.
+	if (now - _discovery_start < 50_ms) {
+		return;
+	}
+
+	if (_handshake_seen) {
 		return;
 	}
 
@@ -231,11 +253,31 @@ void Srxl2Rc::maybe_send_startup_handshake(const hrt_abstime now)
 
 	const size_t length = srxl2_build_handshake_packet(_tx_buf, sizeof(_tx_buf),
 			      SRXL2_DEVICE_ID_FC_DEFAULT, SRXL2_DEVICE_ID_NONE,
-			      10, 1, 0, device_uid());
+			      SRXL2_TELEMETRY_PRIORITY_NONE, 1, 0, device_uid());
 
 	if (length > 0) {
 		_uart->write(_tx_buf, length);
 		_last_startup_handshake = now;
+	}
+}
+
+void Srxl2Rc::maybe_advance_discovery(const hrt_abstime now)
+{
+	if (!_discovery_mode) {
+		return;
+	}
+
+	// Probe both valid SRXL2 baud rates so the FC can rejoin a bus that
+	// stayed alive while the flight controller reset.
+	if (now - _baud_set_time < SRXL2_DISCOVERY_DWELL_TIME) {
+		return;
+	}
+
+	if (current_baud() == SRXL2_BAUD_115200) {
+		configure_baud(SRXL2_BAUD_400000);
+
+	} else {
+		configure_baud(SRXL2_BAUD_115200);
 	}
 }
 
@@ -263,8 +305,8 @@ void Srxl2Rc::process_control_packet(const srxl2_packet_t &packet, const hrt_abs
 	}
 
 	if (packet.channel_mask == 0) {
-		_input_rc.rc_lost = true;
 		_input_rc.channel_count = 0;
+		_input_rc.rc_lost = false;
 		return;
 	}
 
@@ -310,12 +352,26 @@ void Srxl2Rc::process_packet(const srxl2_packet_t &packet, const hrt_abstime now
 
 	switch (packet.packet_type) {
 	case SRXL2_PACKET_TYPE_HANDSHAKE:
-		_handshake_seen = true;
+		if (packet.dest_id == SRXL2_DEVICE_ID_NONE) {
+			_handshake_unprompted_count++;
+
+			if (packet.src_id < SRXL2_DEVICE_ID_FC_DEFAULT) {
+				_handshake_seen = true;
+			}
+
+		} else if (packet.dest_id == SRXL2_DEVICE_ID_FC_DEFAULT) {
+			_handshake_targeted_count++;
+			_handshake_seen = true;
+
+		} else if (packet.dest_id == SRXL2_DEVICE_ID_BROADCAST) {
+			_handshake_broadcast_count++;
+			_handshake_seen = true;
+		}
 
 		if (packet.dest_id == SRXL2_DEVICE_ID_FC_DEFAULT) {
 			const size_t length = srxl2_build_handshake_packet(_tx_buf, sizeof(_tx_buf),
 				      SRXL2_DEVICE_ID_FC_DEFAULT, packet.src_id,
-				      10, 1, 0, device_uid());
+				      SRXL2_TELEMETRY_PRIORITY_NONE, 1, 0, device_uid());
 
 			if (length > 0) {
 				_uart->write(_tx_buf, length);
@@ -333,12 +389,14 @@ void Srxl2Rc::process_packet(const srxl2_packet_t &packet, const hrt_abstime now
 		if (packet.control_command == SRXL2_CONTROL_CMD_CHANNEL_DATA
 		    || packet.control_command == SRXL2_CONTROL_CMD_FAILSAFE_CHANNEL_DATA) {
 			process_control_packet(packet, now);
-			_discovery_mode = false;
 		}
+
+		_discovery_mode = false;
 
 		break;
 
 	default:
+		_discovery_mode = false;
 		break;
 	}
 }
@@ -402,10 +460,7 @@ void Srxl2Rc::Run()
 		}
 	}
 
-	if (_discovery_mode && now - _baud_set_time > 100_ms) {
-		const uint32_t next_baud = (current_baud() == SRXL2_BAUD_115200) ? SRXL2_BAUD_400000 : SRXL2_BAUD_115200;
-		configure_baud(next_baud);
-	}
+	maybe_advance_discovery(now);
 
 	if (!_discovery_mode && _last_packet_seen != 0 && now - _last_packet_seen > 50_ms) {
 		restart_discovery();
@@ -417,10 +472,37 @@ void Srxl2Rc::Run()
 
 int Srxl2Rc::print_status()
 {
+	srxl2_diagnostics_t diagnostics {};
+	srxl2_get_diagnostics(&diagnostics);
+
 	PX4_INFO("device: %s", _device);
 	PX4_INFO("baudrate: %" PRIu32, _current_baudrate);
 	PX4_INFO("bytes rx: %" PRIu32, _bytes_rx);
 	PX4_INFO("discovery mode: %s", _discovery_mode ? "yes" : "no");
+	PX4_INFO("single-wire: %s", _singlewire_enabled ? "yes" : "no");
+	PX4_INFO("swap rxtx: %s", _swap_rxtx_enabled ? "yes" : "no");
+	PX4_INFO("handshake unprompted: %" PRIu32, _handshake_unprompted_count);
+	PX4_INFO("handshake targeted: %" PRIu32, _handshake_targeted_count);
+	PX4_INFO("handshake broadcast: %" PRIu32, _handshake_broadcast_count);
+	PX4_INFO("sync bytes: %" PRIu32, diagnostics.sync_bytes);
+	PX4_INFO("packets seen: %" PRIu32, diagnostics.packets_seen);
+	PX4_INFO("handshake packets: %" PRIu32, diagnostics.handshake_packets);
+	PX4_INFO("control packets: %" PRIu32, diagnostics.control_packets);
+	PX4_INFO("channel packets: %" PRIu32, diagnostics.control_channel_packets);
+	PX4_INFO("failsafe packets: %" PRIu32, diagnostics.control_failsafe_packets);
+	PX4_INFO("other packets: %" PRIu32, diagnostics.other_packets);
+	PX4_INFO("invalid length: %" PRIu32, diagnostics.invalid_length);
+	PX4_INFO("oversize resync: %" PRIu32, diagnostics.oversize_resync);
+	PX4_INFO("crc failures: %" PRIu32, diagnostics.crc_failures);
+	PX4_INFO("parse failures: %" PRIu32, diagnostics.parse_failures);
+	PX4_INFO("last packet type: 0x%02x", diagnostics.last_packet_type);
+	PX4_INFO("last packet length: %" PRIu8, diagnostics.last_packet_length);
+	PX4_INFO("last handshake src: 0x%02x", diagnostics.last_handshake_src_id);
+	PX4_INFO("last handshake dest: 0x%02x", diagnostics.last_handshake_dest_id);
+	PX4_INFO("last handshake baud: 0x%02x", diagnostics.last_handshake_baud_support);
+	PX4_INFO("last handshake info: 0x%02x", diagnostics.last_handshake_info);
+	PX4_INFO("last crc expected: 0x%04x", diagnostics.last_crc_expected);
+	PX4_INFO("last crc received: 0x%04x", diagnostics.last_crc_received);
 	return 0;
 }
 

@@ -97,6 +97,28 @@ typedef struct {
 	uint8_t num_channels;
 } srxl2_packet_t;
 
+typedef struct {
+	uint32_t sync_bytes;
+	uint32_t invalid_length;
+	uint32_t oversize_resync;
+	uint32_t packets_seen;
+	uint32_t crc_failures;
+	uint32_t parse_failures;
+	uint32_t handshake_packets;
+	uint32_t control_packets;
+	uint32_t control_channel_packets;
+	uint32_t control_failsafe_packets;
+	uint32_t other_packets;
+	uint8_t last_packet_type;
+	uint8_t last_packet_length;
+	uint8_t last_handshake_src_id;
+	uint8_t last_handshake_dest_id;
+	uint8_t last_handshake_baud_support;
+	uint8_t last_handshake_info;
+	uint16_t last_crc_expected;
+	uint16_t last_crc_received;
+} srxl2_diagnostics_t;
+
 /**
  * Configure a UART port for SRXL2.
  *
@@ -108,6 +130,12 @@ __EXPORT int srxl2_config(int uart_fd, uint32_t baudrate);
 
 /** Reset the internal byte-wise parser state. */
 __EXPORT void srxl2_reset_parser(void);
+
+/** Reset accumulated parser diagnostics counters. */
+__EXPORT void srxl2_reset_diagnostics(void);
+
+/** Copy the current parser diagnostics counters. */
+__EXPORT void srxl2_get_diagnostics(srxl2_diagnostics_t *diagnostics);
 
 /**
  * Parse a single byte from the SRXL2 stream.

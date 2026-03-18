@@ -50,6 +50,7 @@ struct srxl2_parser_state_t {
 };
 
 srxl2_parser_state_t g_parser_state{};
+srxl2_diagnostics_t g_diagnostics{};
 
 constexpr uint16_t SRXL2_CENTER = 0x8000;
 constexpr int32_t SRXL2_FULL_SCALE_DELTA = 21856;
@@ -107,6 +108,10 @@ static bool parse_handshake_packet(const uint8_t *buffer, srxl2_packet_t *packet
 	packet->baud_support = buffer[6];
 	packet->info = buffer[7];
 	packet->uid = read_le_u32(&buffer[8]);
+	g_diagnostics.last_handshake_src_id = packet->src_id;
+	g_diagnostics.last_handshake_dest_id = packet->dest_id;
+	g_diagnostics.last_handshake_baud_support = packet->baud_support;
+	g_diagnostics.last_handshake_info = packet->info;
 	return true;
 }
 
@@ -210,6 +215,18 @@ void srxl2_reset_parser(void)
 	g_parser_state = {};
 }
 
+void srxl2_reset_diagnostics(void)
+{
+	g_diagnostics = {};
+}
+
+void srxl2_get_diagnostics(srxl2_diagnostics_t *diagnostics)
+{
+	if (diagnostics != nullptr) {
+		*diagnostics = g_diagnostics;
+	}
+}
+
 bool srxl2_parse_byte(uint8_t byte, srxl2_packet_t *packet)
 {
 	if (g_parser_state.position == 0) {
@@ -217,6 +234,7 @@ bool srxl2_parse_byte(uint8_t byte, srxl2_packet_t *packet)
 			return false;
 		}
 
+		g_diagnostics.sync_bytes++;
 		g_parser_state.buffer[g_parser_state.position++] = byte;
 		return false;
 	}
@@ -228,6 +246,7 @@ bool srxl2_parse_byte(uint8_t byte, srxl2_packet_t *packet)
 
 		if (g_parser_state.expected_length < SRXL2_PACKET_LENGTH_MIN
 		    || g_parser_state.expected_length > SRXL2_PACKET_LENGTH_MAX) {
+			g_diagnostics.invalid_length++;
 			parser_resync_from_current_buffer();
 		}
 
@@ -236,6 +255,7 @@ bool srxl2_parse_byte(uint8_t byte, srxl2_packet_t *packet)
 
 	if (g_parser_state.expected_length == 0 || g_parser_state.position < g_parser_state.expected_length) {
 		if (g_parser_state.position >= SRXL2_PACKET_LENGTH_MAX) {
+			g_diagnostics.oversize_resync++;
 			parser_resync_from_current_buffer();
 		}
 
@@ -249,11 +269,46 @@ bool srxl2_parse_byte(uint8_t byte, srxl2_packet_t *packet)
 
 	const uint16_t computed_crc = srxl2_crc16(g_parser_state.buffer, g_parser_state.expected_length - 2);
 	const uint16_t received_crc = read_be_u16(&g_parser_state.buffer[g_parser_state.expected_length - 2]);
+	g_diagnostics.packets_seen++;
+	g_diagnostics.last_packet_type = g_parser_state.buffer[1];
+	g_diagnostics.last_packet_length = g_parser_state.expected_length;
+	g_diagnostics.last_crc_expected = computed_crc;
+	g_diagnostics.last_crc_received = received_crc;
 
 	bool success = false;
 
 	if (computed_crc == received_crc) {
 		success = parse_packet(g_parser_state.buffer, packet);
+
+		if (success) {
+			switch (packet->packet_type) {
+			case SRXL2_PACKET_TYPE_HANDSHAKE:
+				g_diagnostics.handshake_packets++;
+				break;
+
+			case SRXL2_PACKET_TYPE_CONTROL_DATA:
+				g_diagnostics.control_packets++;
+
+				if (packet->control_command == SRXL2_CONTROL_CMD_CHANNEL_DATA) {
+					g_diagnostics.control_channel_packets++;
+
+				} else if (packet->control_command == SRXL2_CONTROL_CMD_FAILSAFE_CHANNEL_DATA) {
+					g_diagnostics.control_failsafe_packets++;
+				}
+
+				break;
+
+			default:
+				g_diagnostics.other_packets++;
+				break;
+			}
+
+		} else {
+			g_diagnostics.parse_failures++;
+		}
+
+	} else {
+		g_diagnostics.crc_failures++;
 	}
 
 	parser_resync_from_current_buffer();

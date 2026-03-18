@@ -67,6 +67,7 @@ private:
 	bool configure_baud(uint32_t baudrate);
 	void restart_discovery();
 	void maybe_send_startup_handshake(const hrt_abstime now);
+	void maybe_advance_discovery(const hrt_abstime now);
 	void process_packet(const srxl2_packet_t &packet, const hrt_abstime now);
 	void process_control_packet(const srxl2_packet_t &packet, const hrt_abstime now);
 	void publish_rc(const hrt_abstime now);
@@ -97,6 +98,11 @@ private:
 	bool _handshake_seen{false};
 	uint32_t _bytes_rx{0};
 	uint32_t _total_frame_count{0};
+	uint32_t _handshake_unprompted_count{0};
+	uint32_t _handshake_targeted_count{0};
+	uint32_t _handshake_broadcast_count{0};
+	bool _singlewire_enabled{false};
+	bool _swap_rxtx_enabled{false};
 
 	perf_counter_t _cycle_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": cycle interval")};
 	perf_counter_t _publish_interval_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": publish interval")};
