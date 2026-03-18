@@ -68,6 +68,8 @@ Srxl2Rc::Srxl2Rc(const char *device) :
 	_input_rc.rssi_dbm = NAN;
 	_input_rc.link_quality = -1;
 	_input_rc.link_snr = -1;
+	_input_rc.rc_lost = true;
+	_input_rc.rc_failsafe = true;
 }
 
 Srxl2Rc::~Srxl2Rc()
@@ -132,8 +134,13 @@ int Srxl2Rc::custom_command(int argc, char *argv[])
 
 bool Srxl2Rc::init_uart()
 {
-	if (_uart != nullptr) {
+	if (_uart != nullptr && _uart->isOpen()) {
 		return true;
+	}
+
+	if (_uart != nullptr) {
+		delete _uart;
+		_uart = nullptr;
 	}
 
 	_uart = new Serial(_device);
@@ -146,11 +153,15 @@ bool Srxl2Rc::init_uart()
 	if (!_uart->setBaudrate(SRXL2_BAUD_115200) || !_uart->setParity(Parity::None)
 	    || !_uart->setStopbits(StopBits::One) || !_uart->setBytesize(ByteSize::EightBits)) {
 		PX4_ERR("serial config failed");
+		delete _uart;
+		_uart = nullptr;
 		return false;
 	}
 
 	if (!_uart->open()) {
 		PX4_ERR("open failed on %s", _device);
+		delete _uart;
+		_uart = nullptr;
 		return false;
 	}
 
@@ -211,6 +222,16 @@ void Srxl2Rc::restart_discovery()
 	_handshake_unprompted_count = 0;
 	_handshake_targeted_count = 0;
 	_handshake_broadcast_count = 0;
+	_input_rc.channel_count = 0;
+	_input_rc.rc_lost = true;
+	_input_rc.rc_failsafe = true;
+
+	for (uint8_t channel = 0; channel < input_rc_s::RC_INPUT_MAX_CHANNELS; ++channel) {
+		_channel_valid[channel] = false;
+		_channel_values[channel] = UINT16_MAX;
+		_input_rc.values[channel] = UINT16_MAX;
+	}
+
 	srxl2_reset_parser();
 	srxl2_reset_diagnostics();
 
@@ -305,8 +326,15 @@ void Srxl2Rc::process_control_packet(const srxl2_packet_t &packet, const hrt_abs
 	}
 
 	if (packet.channel_mask == 0) {
+		for (uint8_t channel = 0; channel < input_rc_s::RC_INPUT_MAX_CHANNELS; ++channel) {
+			_channel_valid[channel] = false;
+			_channel_values[channel] = UINT16_MAX;
+			_input_rc.values[channel] = UINT16_MAX;
+		}
+
 		_input_rc.channel_count = 0;
-		_input_rc.rc_lost = false;
+		_input_rc.rc_lost = true;
+		_input_rc.rc_failsafe = true;
 		return;
 	}
 
@@ -407,7 +435,7 @@ void Srxl2Rc::publish_rc(const hrt_abstime now)
 		return;
 	}
 
-	if (_last_rc_update != 0 && now - _last_rc_update > 500_ms) {
+	if (_last_rc_update == 0 || now - _last_rc_update > 500_ms) {
 		_input_rc.rc_lost = true;
 		_input_rc.rc_failsafe = true;
 	}

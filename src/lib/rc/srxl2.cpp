@@ -125,6 +125,10 @@ static bool parse_control_packet(const uint8_t *buffer, srxl2_packet_t *packet)
 		return true;
 	}
 
+	if (buffer[2] < 14) {
+		return false;
+	}
+
 	const uint8_t control_payload_length = buffer[2] - 7;
 
 	if (control_payload_length < 7 || ((control_payload_length - 7) % 2) != 0) {

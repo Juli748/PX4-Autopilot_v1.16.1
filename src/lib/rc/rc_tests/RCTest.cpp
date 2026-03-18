@@ -316,6 +316,29 @@ bool RCTest::srxl2Test()
 		ut_compare("Wrong PWM conversion", 1500, srxl2_raw_to_pwm(0x8000));
 	}
 
+	{
+		uint8_t packet_buf[] {
+			SRXL2_ID,
+			SRXL2_PACKET_TYPE_CONTROL_DATA,
+			0x06,
+			SRXL2_CONTROL_CMD_CHANNEL_DATA,
+			SRXL2_DEVICE_ID_FC_DEFAULT,
+			0x00
+		};
+
+		srxl2_reset_parser();
+		srxl2_packet_t packet {};
+		bool parsed = false;
+
+		for (size_t i = 0; i < sizeof(packet_buf); ++i) {
+			if (srxl2_parse_byte(packet_buf[i], &packet)) {
+				parsed = true;
+			}
+		}
+
+		ut_test(!parsed);
+	}
+
 	return true;
 }
 
