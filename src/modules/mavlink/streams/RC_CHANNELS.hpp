@@ -62,6 +62,11 @@ private:
 		input_rc_s rc;
 
 		if (_input_rc_sub.update(&rc)) {
+			// Skip only clearly invalid transient frames; keep the stream visible in Inspector.
+			if (rc.rc_lost || rc.channel_count == 0) {
+				return false;
+			}
+
 			// send RC channel data and RSSI
 			mavlink_rc_channels_t msg{};
 
