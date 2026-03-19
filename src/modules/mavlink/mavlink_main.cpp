@@ -1492,6 +1492,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("RAW_RPM", 2.0f);
 		configure_stream_local("RC_CHANNELS", 5.0f);
 		configure_stream_local("SCALED_PRESSURE", 1.0f);
+		configure_stream_local("SENSOR_AOA", 5.0f);
 		configure_stream_local("SERVO_OUTPUT_RAW_0", 1.0f);
 		configure_stream_local("SYS_STATUS", 1.0f);
 		configure_stream_local("TIME_ESTIMATE_TO_TARGET", 1.0f);
@@ -1565,6 +1566,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("RAW_RPM", 5.0f);
 		configure_stream_local("RC_CHANNELS", 20.0f);
 		configure_stream_local("SCALED_PRESSURE", 1.0f);
+		configure_stream_local("SENSOR_AOA", 10.0f);
 		configure_stream_local("SERVO_OUTPUT_RAW_0", 10.0f);
 		configure_stream_local("SYS_STATUS", 5.0f);
 		configure_stream_local("SYSTEM_TIME", 1.0f);
@@ -1625,6 +1627,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("GPS_RAW_INT", 1.0f);
 		configure_stream_local("HOME_POSITION", 0.5f);
 		configure_stream_local("HYGROMETER_SENSOR", 1.0f);
+		configure_stream_local("SENSOR_AOA", 5.0f);
 		configure_stream_local("SCALED_PRESSURE", 1.0f);
 		configure_stream_local("NAV_CONTROLLER_OUTPUT", 1.5f);
 		configure_stream_local("OPTICAL_FLOW_RAD", 1.0f);
@@ -1666,6 +1669,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("GPS_RAW_INT", 1.0f);
 		configure_stream_local("HOME_POSITION", 0.5f);
 		configure_stream_local("HYGROMETER_SENSOR", 0.1f);
+		configure_stream_local("SENSOR_AOA", 2.0f);
 		configure_stream_local("SCALED_PRESSURE", 1.0f);
 		configure_stream_local("RC_CHANNELS", 5.0f);
 		configure_stream_local("SERVO_OUTPUT_RAW_0", 1.0f);
@@ -1719,6 +1723,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("HIGHRES_IMU", 50.0f);
 		configure_stream_local("HOME_POSITION", 0.5f);
 		configure_stream_local("HYGROMETER_SENSOR", 1.0f);
+		configure_stream_local("SENSOR_AOA", 10.0f);
 		configure_stream_local("MAG_CAL_REPORT", 1.0f);
 		configure_stream_local("MANUAL_CONTROL", 5.0f);
 		configure_stream_local("NAV_CONTROLLER_OUTPUT", 10.0f);
@@ -1773,6 +1778,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("GPS_RAW_INT", 0.5f);
 		configure_stream_local("HOME_POSITION", 0.1f);
 		configure_stream_local("NAMED_VALUE_FLOAT", 1.0f);
+		configure_stream_local("SENSOR_AOA", 1.0f);
 		configure_stream_local("RC_CHANNELS", 0.5f);
 		configure_stream_local("SYS_STATUS", 0.1f);
 		configure_stream_local("VFR_HUD", 1.0f);
@@ -1817,6 +1823,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("GPS2_RAW", unlimited_rate);
 		configure_stream_local("GPS_RAW_INT", unlimited_rate);
 		configure_stream_local("HOME_POSITION", 0.5f);
+		configure_stream_local("SENSOR_AOA", 2.0f);
 		configure_stream_local("NAV_CONTROLLER_OUTPUT", 1.5f);
 		configure_stream_local("OPEN_DRONE_ID_LOCATION", 1.f);
 		configure_stream_local("OPEN_DRONE_ID_SYSTEM", 1.f);
@@ -1879,6 +1886,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("GPS2_RAW", 2.0f);
 		configure_stream_local("GPS_RAW_INT", 2.0f);
 		configure_stream_local("HOME_POSITION", 0.5f);
+		configure_stream_local("SENSOR_AOA", 1.0f);
 		configure_stream_local("NAV_CONTROLLER_OUTPUT", 0.1f);
 		configure_stream_local("OPTICAL_FLOW_RAD", 0.1f);
 		configure_stream_local("ORBIT_EXECUTION_STATUS", 1.0f);
