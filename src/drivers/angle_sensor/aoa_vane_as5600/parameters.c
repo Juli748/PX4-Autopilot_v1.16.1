@@ -31,6 +31,8 @@
  *
  ****************************************************************************/
 
+#include <parameters/param.h>
+
 /**
  * Enable AoA vane calibration table
  *

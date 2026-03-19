@@ -38,11 +38,15 @@
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>
 #include <parameters/param.h>
+#include <px4_platform_common/defines.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/sensor_aoa.h>
 #include <uORB/topics/parameter_update.h>
+
+using namespace time_literals;
 
 class AoaVaneAS5600 : public device::I2C, public I2CSPIDriver<AoaVaneAS5600>
 {
