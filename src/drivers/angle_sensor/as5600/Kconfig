@@ -1,5 +1,0 @@
-menuconfig DRIVERS_ANGLE_SENSOR_AS5600
-	bool "as5600"
-	default n
-	---help---
-		Enable support for the AS5600 magnetic angle sensor.

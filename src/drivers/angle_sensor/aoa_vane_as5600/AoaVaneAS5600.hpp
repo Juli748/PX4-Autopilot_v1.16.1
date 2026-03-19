@@ -31,49 +31,44 @@
  *
  ****************************************************************************/
 
-#include "AS5600.hpp"
+#pragma once
 
-#include <px4_platform_common/getopt.h>
-#include <px4_platform_common/module.h>
+#include <drivers/drv_sensor.h>
+#include <drivers/device/i2c.h>
+#include <drivers/drv_hrt.h>
+#include <lib/perf/perf_counter.h>
+#include <px4_platform_common/i2c_spi_buses.h>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/sensor_aoa.h>
 
-void AS5600::print_usage()
+class AoaVaneAS5600 : public device::I2C, public I2CSPIDriver<AoaVaneAS5600>
 {
-	PRINT_MODULE_USAGE_NAME("as5600", "driver");
-	PRINT_MODULE_USAGE_SUBCATEGORY("angle_sensor");
-	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(true, false);
-	PRINT_MODULE_USAGE_PARAMS_I2C_ADDRESS(AS5600::I2C_ADDRESS_DEFAULT);
-	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
-}
+public:
+	static constexpr uint8_t I2C_ADDRESS_DEFAULT = 0x36;
+	static constexpr uint32_t I2C_SPEED_DEFAULT = 100000;
 
-extern "C" __EXPORT int as5600_main(int argc, char *argv[])
-{
-	using ThisDriver = AS5600;
-	BusCLIArguments cli{true, false};
-	cli.default_i2c_frequency = ThisDriver::I2C_SPEED_DEFAULT;
-	cli.i2c_address = ThisDriver::I2C_ADDRESS_DEFAULT;
+	AoaVaneAS5600(const I2CSPIDriverConfig &config);
+	~AoaVaneAS5600() override;
 
-	const char *verb = cli.parseDefaultArguments(argc, argv);
+	static void print_usage();
 
-	if (!verb) {
-		ThisDriver::print_usage();
-		return -1;
-	}
+	int init() override;
+	void print_status() override;
+	void RunImpl();
 
-	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_SENS_DEVTYPE_AS5600);
+private:
+	static constexpr uint8_t REG_RAW_ANGLE_H = 0x0C;
 
-	if (!strcmp(verb, "start")) {
-		return ThisDriver::module_start(cli, iterator);
-	}
+	static constexpr uint16_t RAW_ANGLE_MAX = 4096;
+	static constexpr uint32_t SAMPLE_INTERVAL_US = 20000;
 
-	if (!strcmp(verb, "stop")) {
-		return ThisDriver::module_stop(iterator);
-	}
+	int probe() override;
+	int read_angle(uint16_t &raw_angle);
 
-	if (!strcmp(verb, "status")) {
-		return ThisDriver::module_status(iterator);
-	}
+	uORB::Publication<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
 
-	ThisDriver::print_usage();
-	return -1;
-}
+	perf_counter_t _sample_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": read")};
+	perf_counter_t _comms_errors{perf_alloc(PC_COUNT, MODULE_NAME": com_err")};
+
+	uint32_t _error_count{0};
+};

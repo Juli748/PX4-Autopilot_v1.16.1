@@ -31,25 +31,25 @@
  *
  ****************************************************************************/
 
-#include "AS5600.hpp"
+#include "AoaVaneAS5600.hpp"
 
 #include <inttypes.h>
 #include <mathlib/mathlib.h>
 
-AS5600::AS5600(const I2CSPIDriverConfig &config) :
+AoaVaneAS5600::AoaVaneAS5600(const I2CSPIDriverConfig &config) :
 	I2C(config),
 	I2CSPIDriver(config)
 {
-	set_device_type(DRV_SENS_DEVTYPE_AS5600);
+	set_device_type(DRV_SENS_DEVTYPE_AOA_VANE_AS5600);
 }
 
-AS5600::~AS5600()
+AoaVaneAS5600::~AoaVaneAS5600()
 {
 	perf_free(_sample_perf);
 	perf_free(_comms_errors);
 }
 
-int AS5600::init()
+int AoaVaneAS5600::init()
 {
 	const int ret = I2C::init();
 
@@ -62,13 +62,13 @@ int AS5600::init()
 	return PX4_OK;
 }
 
-int AS5600::probe()
+int AoaVaneAS5600::probe()
 {
 	uint16_t raw_angle = 0;
 	return read_angle(raw_angle);
 }
 
-int AS5600::read_angle(uint16_t &raw_angle)
+int AoaVaneAS5600::read_angle(uint16_t &raw_angle)
 {
 	uint8_t reg = REG_RAW_ANGLE_H;
 	uint8_t buffer[2] {};
@@ -84,7 +84,7 @@ int AS5600::read_angle(uint16_t &raw_angle)
 	return PX4_OK;
 }
 
-void AS5600::RunImpl()
+void AoaVaneAS5600::RunImpl()
 {
 	perf_begin(_sample_perf);
 	static constexpr float TWO_PI_F = 6.28318530717958647692f;
@@ -115,7 +115,7 @@ void AS5600::RunImpl()
 	perf_end(_sample_perf);
 }
 
-void AS5600::print_status()
+void AoaVaneAS5600::print_status()
 {
 	I2CSPIDriverBase::print_status();
 	PX4_INFO("error_count: %" PRIu32, _error_count);

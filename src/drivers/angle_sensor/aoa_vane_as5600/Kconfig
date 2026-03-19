@@ -1,0 +1,5 @@
+menuconfig DRIVERS_ANGLE_SENSOR_AOA_VANE_AS5600
+	bool "AoA vane (AS5600)"
+	default n
+	---help---
+		Enable support for an angle-of-attack vane that uses the AS5600 magnetic hall effect sensor.
