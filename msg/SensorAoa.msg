@@ -5,5 +5,5 @@ uint32 device_id         # [-] Unique device ID for the sensor that does not cha
 uint32 error_count       # [-] Number of errors detected by driver
 
 uint16 raw_angle         # [-] Raw 12-bit angle count from the AS5600 hall sensor (0..4095)
-float32 angle_rad        # [rad] Angle converted from raw count
-float32 angle_deg        # [deg] Angle converted from raw count
+float32 angle_rad        # [rad] AoA angle after optional parameter-based calibration/interpolation, wrapped to [-pi, pi]
+float32 angle_deg        # [deg] AoA angle after optional parameter-based calibration/interpolation, wrapped to [-180, 180]

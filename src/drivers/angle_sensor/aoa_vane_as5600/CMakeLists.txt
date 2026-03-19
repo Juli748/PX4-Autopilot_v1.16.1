@@ -5,6 +5,7 @@ px4_add_module(
 		AoaVaneAS5600.cpp
 		AoaVaneAS5600.hpp
 		AoaVaneAS5600_main.cpp
+		parameters.c
 	DEPENDS
 		px4_work_queue
 	)

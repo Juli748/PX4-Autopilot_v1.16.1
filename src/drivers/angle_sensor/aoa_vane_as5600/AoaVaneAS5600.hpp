@@ -37,15 +37,19 @@
 #include <drivers/device/i2c.h>
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>
+#include <parameters/param.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <uORB/Publication.hpp>
+#include <uORB/Subscription.hpp>
 #include <uORB/topics/sensor_aoa.h>
+#include <uORB/topics/parameter_update.h>
 
 class AoaVaneAS5600 : public device::I2C, public I2CSPIDriver<AoaVaneAS5600>
 {
 public:
 	static constexpr uint8_t I2C_ADDRESS_DEFAULT = 0x36;
 	static constexpr uint32_t I2C_SPEED_DEFAULT = 100000;
+	static constexpr int CAL_POINT_COUNT = 6;
 
 	AoaVaneAS5600(const I2CSPIDriverConfig &config);
 	~AoaVaneAS5600() override;
@@ -62,13 +66,38 @@ private:
 	static constexpr uint16_t RAW_ANGLE_MAX = 4096;
 	static constexpr uint32_t SAMPLE_INTERVAL_US = 20000;
 
+	struct CalibrationData {
+		bool enabled{false};
+		bool valid{false};
+		int32_t sign{1};
+		int32_t raw_points[CAL_POINT_COUNT]{};
+	};
+
 	int probe() override;
 	int read_angle(uint16_t &raw_angle);
+	void update_params(bool force = false);
+	float calibrated_angle_deg(uint16_t raw_angle) const;
+	bool build_calibration_points(int32_t (&unwrapped_points)[CAL_POINT_COUNT]) const;
+	static int32_t unwrap_raw_count(int32_t raw_count, int32_t reference);
+	static float wrap_angle_180(float angle_deg);
 
 	uORB::Publication<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
+	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	perf_counter_t _sample_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": read")};
 	perf_counter_t _comms_errors{perf_alloc(PC_COUNT, MODULE_NAME": com_err")};
 
+	param_t _param_handles[CAL_POINT_COUNT + 2] {
+		param_find("SENS_AOA_CAL_EN"),
+		param_find("SENS_AOA_SIGN"),
+		param_find("SENS_AOA_RAW_0"),
+		param_find("SENS_AOA_RAW_5"),
+		param_find("SENS_AOA_RAW_10"),
+		param_find("SENS_AOA_RAW_15"),
+		param_find("SENS_AOA_RAW_20"),
+		param_find("SENS_AOA_RAW_45"),
+	};
+
+	CalibrationData _calibration{};
 	uint32_t _error_count{0};
 };
