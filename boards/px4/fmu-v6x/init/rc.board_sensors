@@ -127,9 +127,6 @@ fi
 # External compass on GPS1/I2C1 (the 3rd external bus): standard Holybro Pixhawk 4 or CUAV V5 GPS/compass puck (with lights, safety button, and buzzer)
 ist8310 -X -b 1 -R 10 start
 
-# Auto-start AoA vane with AS5600 magnetic hall sensor on external I2C bus 3 (SCL3/SDA3).
-aoa_vane_as5600 start -X -b 3 -q
-
 # Possible internal Baro
 if param compare SENS_INT_BARO_EN 1
 then

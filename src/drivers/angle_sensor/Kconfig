@@ -1,3 +1,0 @@
-menu "Angle Sensors"
-	rsource "*/Kconfig"
-endmenu
