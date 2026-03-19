@@ -43,6 +43,7 @@
 #include <uORB/Publication.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
+#include <uORB/topics/debug_key_value.h>
 #include <uORB/topics/sensor_aoa.h>
 #include <uORB/topics/parameter_update.h>
 
@@ -96,6 +97,7 @@ private:
 	static uint8_t fast_filter_threshold_to_conf_bits(int32_t fast_filter_threshold);
 
 	uORB::Publication<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
+	uORB::Publication<debug_key_value_s> _debug_key_value_pub{ORB_ID(debug_key_value)};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	perf_counter_t _sample_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": read")};

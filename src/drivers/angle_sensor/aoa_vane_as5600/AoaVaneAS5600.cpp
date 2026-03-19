@@ -356,6 +356,12 @@ void AoaVaneAS5600::RunImpl()
 		sensor_aoa.timestamp = hrt_absolute_time();
 		_sensor_aoa_pub.publish(sensor_aoa);
 
+		debug_key_value_s debug_key_value{};
+		debug_key_value.timestamp = sensor_aoa.timestamp;
+		memcpy(debug_key_value.key, "AOA", 4);
+		debug_key_value.value = angle_deg;
+		_debug_key_value_pub.publish(debug_key_value);
+
 	} else {
 		++_error_count;
 		perf_count(_comms_errors);
