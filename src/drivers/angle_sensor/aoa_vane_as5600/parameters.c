@@ -55,6 +55,33 @@ PARAM_DEFINE_INT32(SENS_AOA_CAL_EN, 0);
 PARAM_DEFINE_INT32(SENS_AOA_SIGN, 1);
 
 /**
+ * AoA vane slow filter factor
+ *
+ * Sets the AS5600 slow filter level. Higher values smooth more but respond slower.
+ *
+ * @value 16 Strongest smoothing
+ * @value 8 Medium smoothing
+ * @value 4 Light smoothing
+ * @value 2 Lightest smoothing
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_AOA_SF, 16);
+
+/**
+ * AoA vane fast filter threshold
+ *
+ * Sets the AS5600 fast filter threshold in LSB. Set to 0 to disable the fast threshold
+ * and use only the slow filter. Lower values react sooner to fast angle changes.
+ *
+ * Allowed values: 0, 6, 7, 9, 10, 18, 21, 24
+ *
+ * @min 0
+ * @max 24
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_AOA_FTH, 0);
+
+/**
  * AoA vane raw count at 0 degrees
  *
  * Raw AS5600 reading with the vane fixed at 0 degrees angle of attack.

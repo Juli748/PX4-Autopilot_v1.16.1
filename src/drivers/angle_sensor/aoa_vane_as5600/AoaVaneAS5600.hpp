@@ -62,6 +62,10 @@ public:
 
 private:
 	static constexpr uint8_t REG_RAW_ANGLE_H = 0x0C;
+	static constexpr uint8_t REG_STATUS = 0x0B;
+	static constexpr uint8_t REG_CONF_H = 0x07;
+	static constexpr uint8_t REG_AGC = 0x1A;
+	static constexpr uint8_t REG_MAGNITUDE_H = 0x1B;
 
 	static constexpr uint16_t RAW_ANGLE_MAX = 4096;
 	static constexpr uint32_t SAMPLE_INTERVAL_US = 20000;
@@ -70,16 +74,22 @@ private:
 		bool enabled{false};
 		bool valid{false};
 		int32_t sign{1};
+		int32_t slow_filter{16};
+		int32_t fast_filter_threshold{0};
 		int32_t raw_points[CAL_POINT_COUNT]{};
 	};
 
 	int probe() override;
 	int read_angle(uint16_t &raw_angle);
+	int read_diagnostics(uint8_t &status, uint8_t &agc, uint16_t &magnitude);
+	int update_conf_register();
 	void update_params(bool force = false);
 	float calibrated_angle_deg(uint16_t raw_angle) const;
 	bool build_calibration_points(int32_t (&unwrapped_points)[CAL_POINT_COUNT]) const;
 	static int32_t unwrap_raw_count(int32_t raw_count, int32_t reference);
 	static float wrap_angle_180(float angle_deg);
+	static uint8_t slow_filter_to_conf_bits(int32_t slow_filter);
+	static uint8_t fast_filter_threshold_to_conf_bits(int32_t fast_filter_threshold);
 
 	uORB::Publication<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
@@ -87,9 +97,11 @@ private:
 	perf_counter_t _sample_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": read")};
 	perf_counter_t _comms_errors{perf_alloc(PC_COUNT, MODULE_NAME": com_err")};
 
-	param_t _param_handles[CAL_POINT_COUNT + 2] {
+	param_t _param_handles[CAL_POINT_COUNT + 4] {
 		param_find("SENS_AOA_CAL_EN"),
 		param_find("SENS_AOA_SIGN"),
+		param_find("SENS_AOA_SF"),
+		param_find("SENS_AOA_FTH"),
 		param_find("SENS_AOA_RAW_0"),
 		param_find("SENS_AOA_RAW_5"),
 		param_find("SENS_AOA_RAW_10"),

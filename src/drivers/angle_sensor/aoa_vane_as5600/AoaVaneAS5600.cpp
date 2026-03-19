@@ -90,6 +90,76 @@ int AoaVaneAS5600::read_angle(uint16_t &raw_angle)
 	return PX4_OK;
 }
 
+int AoaVaneAS5600::read_diagnostics(uint8_t &status, uint8_t &agc, uint16_t &magnitude)
+{
+	uint8_t reg = REG_STATUS;
+	uint8_t buffer[4] {};
+
+	const int ret = transfer(&reg, 1, buffer, sizeof(buffer));
+
+	if (ret != PX4_OK) {
+		return ret;
+	}
+
+	status = buffer[0];
+	agc = buffer[1];
+	magnitude = (static_cast<uint16_t>(buffer[2]) << 8) | buffer[3];
+	magnitude &= 0x0FFF;
+	return PX4_OK;
+}
+
+uint8_t AoaVaneAS5600::slow_filter_to_conf_bits(int32_t slow_filter)
+{
+	switch (slow_filter) {
+	case 2: return 0x3;
+	case 4: return 0x2;
+	case 8: return 0x1;
+	case 16:
+	default:
+		return 0x0;
+	}
+}
+
+uint8_t AoaVaneAS5600::fast_filter_threshold_to_conf_bits(int32_t fast_filter_threshold)
+{
+	switch (fast_filter_threshold) {
+	case 6: return 0x1;
+	case 7: return 0x2;
+	case 9: return 0x3;
+	case 18: return 0x4;
+	case 21: return 0x5;
+	case 24: return 0x6;
+	case 10: return 0x7;
+	case 0:
+	default:
+		return 0x0;
+	}
+}
+
+int AoaVaneAS5600::update_conf_register()
+{
+	uint8_t reg = REG_CONF_H;
+	uint8_t conf[2] {};
+
+	int ret = transfer(&reg, 1, conf, sizeof(conf));
+
+	if (ret != PX4_OK) {
+		return ret;
+	}
+
+	const uint8_t original_conf_h = conf[0];
+	const uint8_t new_conf_h = static_cast<uint8_t>((original_conf_h & 0x80)
+				| ((fast_filter_threshold_to_conf_bits(_calibration.fast_filter_threshold) & 0x7) << 2)
+				| (slow_filter_to_conf_bits(_calibration.slow_filter) & 0x3));
+
+	if (new_conf_h == original_conf_h) {
+		return PX4_OK;
+	}
+
+	uint8_t write_buffer[3] {REG_CONF_H, new_conf_h, conf[1]};
+	return transfer(write_buffer, sizeof(write_buffer), nullptr, 0);
+}
+
 void AoaVaneAS5600::update_params(bool force)
 {
 	if (!_parameter_update_sub.updated() && !force) {
@@ -104,13 +174,50 @@ void AoaVaneAS5600::update_params(bool force)
 	_calibration.enabled = enabled != 0;
 	param_get(_param_handles[1], &_calibration.sign);
 	_calibration.sign = (_calibration.sign >= 0) ? 1 : -1;
+	param_get(_param_handles[2], &_calibration.slow_filter);
+	param_get(_param_handles[3], &_calibration.fast_filter_threshold);
+
+	switch (_calibration.slow_filter) {
+	case 2:
+	case 4:
+	case 8:
+	case 16:
+		break;
+
+	default:
+		_calibration.slow_filter = 16;
+		break;
+	}
+
+	switch (_calibration.fast_filter_threshold) {
+	case 0:
+	case 6:
+	case 7:
+	case 9:
+	case 10:
+	case 18:
+	case 21:
+	case 24:
+		break;
+
+	default:
+		_calibration.fast_filter_threshold = 0;
+		break;
+	}
 
 	for (int i = 0; i < CAL_POINT_COUNT; i++) {
-		param_get(_param_handles[i + 2], &_calibration.raw_points[i]);
+		param_get(_param_handles[i + 4], &_calibration.raw_points[i]);
 	}
 
 	int32_t unwrapped_points[CAL_POINT_COUNT] {};
 	_calibration.valid = _calibration.enabled && build_calibration_points(unwrapped_points);
+
+	const int ret = update_conf_register();
+
+	if (ret != PX4_OK) {
+		++_error_count;
+		perf_count(_comms_errors);
+	}
 }
 
 int32_t AoaVaneAS5600::unwrap_raw_count(int32_t raw_count, int32_t reference)
@@ -224,9 +331,12 @@ void AoaVaneAS5600::RunImpl()
 
 	const hrt_abstime timestamp_sample = hrt_absolute_time();
 	uint16_t raw_angle = 0;
+	uint8_t status = 0;
+	uint8_t agc = 0;
+	uint16_t magnitude = 0;
 	const int ret = read_angle(raw_angle);
 
-	if (ret == PX4_OK) {
+	if (ret == PX4_OK && read_diagnostics(status, agc, magnitude) == PX4_OK) {
 		const float angle_deg = calibrated_angle_deg(raw_angle);
 		const float angle_rad = math::radians(angle_deg);
 
@@ -237,6 +347,12 @@ void AoaVaneAS5600::RunImpl()
 		sensor_aoa.raw_angle = raw_angle;
 		sensor_aoa.angle_rad = angle_rad;
 		sensor_aoa.angle_deg = angle_deg;
+		sensor_aoa.status = status;
+		sensor_aoa.agc = agc;
+		sensor_aoa.magnitude = magnitude;
+		sensor_aoa.magnet_detected = (status & 0x20) != 0;
+		sensor_aoa.magnet_too_weak = (status & 0x10) != 0;
+		sensor_aoa.magnet_too_strong = (status & 0x08) != 0;
 		sensor_aoa.timestamp = hrt_absolute_time();
 		_sensor_aoa_pub.publish(sensor_aoa);
 
@@ -254,6 +370,8 @@ void AoaVaneAS5600::print_status()
 	PX4_INFO("error_count: %" PRIu32, _error_count);
 	PX4_INFO("aoa calibration: %s", _calibration.valid ? "enabled" : (_calibration.enabled ? "invalid" : "disabled"));
 	PX4_INFO("aoa sign: %" PRId32, _calibration.sign);
+	PX4_INFO("aoa slow filter: %" PRId32 "x", _calibration.slow_filter);
+	PX4_INFO("aoa fast threshold: %" PRId32 " LSB", _calibration.fast_filter_threshold);
 	perf_print_counter(_sample_perf);
 	perf_print_counter(_comms_errors);
 }
