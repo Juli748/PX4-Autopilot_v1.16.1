@@ -222,6 +222,7 @@ void Srxl2Rc::restart_discovery()
 	_handshake_unprompted_count = 0;
 	_handshake_targeted_count = 0;
 	_handshake_broadcast_count = 0;
+	_have_valid_channels = false;
 	_input_rc.channel_count = 0;
 	_input_rc.rc_lost = true;
 	_input_rc.rc_failsafe = true;
@@ -326,15 +327,15 @@ void Srxl2Rc::process_control_packet(const srxl2_packet_t &packet, const hrt_abs
 	}
 
 	if (packet.channel_mask == 0) {
-		for (uint8_t channel = 0; channel < input_rc_s::RC_INPUT_MAX_CHANNELS; ++channel) {
-			_channel_valid[channel] = false;
-			_channel_values[channel] = UINT16_MAX;
-			_input_rc.values[channel] = UINT16_MAX;
+		// Per the SRXL2 specification, normal Channel Data packets with a zero
+		// channel mask indicate a fade/startup condition and any omitted channels
+		// must hold their last value. Only failsafe packets disable unspecified
+		// channels. Keep the previous channel state if we already have one.
+		if (!_have_valid_channels) {
+			_input_rc.channel_count = 0;
+			_input_rc.rc_lost = true;
 		}
 
-		_input_rc.channel_count = 0;
-		_input_rc.rc_lost = true;
-		_input_rc.rc_failsafe = true;
 		return;
 	}
 
@@ -371,6 +372,7 @@ void Srxl2Rc::process_control_packet(const srxl2_packet_t &packet, const hrt_abs
 	}
 
 	_input_rc.channel_count = highest_valid_channel;
+	_have_valid_channels = highest_valid_channel > 0;
 	_input_rc.rc_lost = false;
 }
 

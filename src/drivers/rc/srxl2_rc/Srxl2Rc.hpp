@@ -101,6 +101,7 @@ private:
 	uint32_t _handshake_unprompted_count{0};
 	uint32_t _handshake_targeted_count{0};
 	uint32_t _handshake_broadcast_count{0};
+	bool _have_valid_channels{false};
 	bool _singlewire_enabled{false};
 	bool _swap_rxtx_enabled{false};
 
