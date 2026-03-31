@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Seawind-specific defaults
+#------------------------------------------------------------------------------
+
+# Use Spektrum SRXL2 on TELEM3 as the only RC input path.
+param set-default RC_SRXL2_PRT_CFG 103
+param set-default RC_PORT_CONFIG 0
+param set-default RC_INPUT_PROTO 0
+
+# Keep only the internal magnetometer active by default.
+param set-default SYS_HAS_MAG 1
+param set-default CAL_MAG0_PRIO 75
+param set-default CAL_MAG1_PRIO 0
+param set-default CAL_MAG2_PRIO 0
+param set-default CAL_MAG3_PRIO 0
+
+# Consumed by rc.board_sensors to skip the GPS1 external compass autostart.
+set SEAWIND_DISABLE_EXTERNAL_MAG yes
