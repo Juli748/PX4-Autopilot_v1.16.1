@@ -148,3 +148,145 @@ PARAM_DEFINE_INT32(SENS_AOA_RAW_20, 0);
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_AOA_RAW_45, 0);
+
+/**
+ * AoA probe I2C address
+ *
+ * Selects which AS5600 I2C address should be used for the angle-of-attack probe.
+ * Set to 0 to disable the AoA probe startup.
+ *
+ * @value 0 Disabled
+ * @value 54 Address 0x36
+ * @value 64 Address 0x40
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_AOA_ADDR, 0);
+
+/**
+ * Enable sideslip vane calibration table
+ *
+ * When enabled, the AS5600 raw angle count is converted to sideslip angle
+ * using piecewise-linear interpolation between the configured raw count points.
+ *
+ * @boolean
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_CAL_EN, 0);
+
+/**
+ * Sideslip vane output sign
+ *
+ * Multiplies the final sideslip output angle after calibration and wrapping.
+ * Use -1 to reverse the sideslip sign convention.
+ *
+ * @value -1 Reverse sign
+ * @value 1 Normal sign
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_SIGN, 1);
+
+/**
+ * Sideslip vane slow filter factor
+ *
+ * Sets the AS5600 slow filter level. Higher values smooth more but respond slower.
+ *
+ * @value 16 Strongest smoothing
+ * @value 8 Medium smoothing
+ * @value 4 Light smoothing
+ * @value 2 Lightest smoothing
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_SF, 16);
+
+/**
+ * Sideslip vane fast filter threshold
+ *
+ * Sets the AS5600 fast filter threshold in LSB. Set to 0 to disable the fast threshold
+ * and use only the slow filter. Lower values react sooner to fast angle changes.
+ *
+ * Allowed values: 0, 6, 7, 9, 10, 18, 21, 24
+ *
+ * @min 0
+ * @max 24
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_FTH, 0);
+
+/**
+ * Sideslip vane raw count at 0 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at 0 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_0, 0);
+
+/**
+ * Sideslip vane raw count at 5 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at 5 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_5, 0);
+
+/**
+ * Sideslip vane raw count at 10 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at 10 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_10, 0);
+
+/**
+ * Sideslip vane raw count at 15 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at 15 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_15, 0);
+
+/**
+ * Sideslip vane raw count at 20 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at 20 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_20, 0);
+
+/**
+ * Sideslip vane raw count at 45 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at 45 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_45, 0);
+
+/**
+ * Sideslip probe I2C address
+ *
+ * Selects which AS5600 I2C address should be used for the sideslip probe.
+ * Set to 0 to disable the sideslip probe startup.
+ *
+ * @value 0 Disabled
+ * @value 54 Address 0x36
+ * @value 64 Address 0x40
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_ADDR, 0);

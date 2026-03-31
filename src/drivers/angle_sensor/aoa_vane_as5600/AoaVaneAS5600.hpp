@@ -41,6 +41,7 @@
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <uORB/Publication.hpp>
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/sensor_aoa.h>
@@ -52,12 +53,20 @@ class AoaVaneAS5600 : public device::I2C, public I2CSPIDriver<AoaVaneAS5600>
 {
 public:
 	static constexpr uint8_t I2C_ADDRESS_DEFAULT = 0x36;
+	static constexpr uint8_t I2C_ADDRESS_ALTERNATE = 0x40;
 	static constexpr uint32_t I2C_SPEED_DEFAULT = 100000;
 	static constexpr int CAL_POINT_COUNT = 6;
 
-	AoaVaneAS5600(const I2CSPIDriverConfig &config);
+	enum class SensorRole : int32_t {
+		Unknown = sensor_aoa_s::ROLE_UNKNOWN,
+		Aoa = sensor_aoa_s::ROLE_AOA,
+		Sideslip = sensor_aoa_s::ROLE_SIDESLIP
+	};
+
+	AoaVaneAS5600(const I2CSPIDriverConfig &config, SensorRole role);
 	~AoaVaneAS5600() override;
 
+	static I2CSPIDriverBase *instantiate(const I2CSPIDriverConfig &config, int runtime_instance);
 	static void print_usage();
 
 	int init() override;
@@ -95,25 +104,20 @@ private:
 	static uint8_t slow_filter_to_conf_bits(int32_t slow_filter);
 	static uint8_t fast_filter_threshold_to_conf_bits(int32_t fast_filter_threshold);
 
-	uORB::Publication<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
+	static constexpr int PARAM_HANDLE_COUNT = CAL_POINT_COUNT + 4;
+
+	uORB::PublicationMulti<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	perf_counter_t _sample_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": read")};
 	perf_counter_t _comms_errors{perf_alloc(PC_COUNT, MODULE_NAME": com_err")};
 
-	param_t _param_handles[CAL_POINT_COUNT + 4] {
-		param_find("SENS_AOA_CAL_EN"),
-		param_find("SENS_AOA_SIGN"),
-		param_find("SENS_AOA_SF"),
-		param_find("SENS_AOA_FTH"),
-		param_find("SENS_AOA_RAW_0"),
-		param_find("SENS_AOA_RAW_5"),
-		param_find("SENS_AOA_RAW_10"),
-		param_find("SENS_AOA_RAW_15"),
-		param_find("SENS_AOA_RAW_20"),
-		param_find("SENS_AOA_RAW_45"),
-	};
+	const SensorRole _role{SensorRole::Unknown};
+	param_t _param_handles[PARAM_HANDLE_COUNT] {};
 
 	CalibrationData _calibration{};
 	uint32_t _error_count{0};
+
+	static const char *role_name(SensorRole role);
+	static const char *param_name(SensorRole role, int index);
 };

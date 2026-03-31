@@ -1,8 +1,13 @@
+uint8 ROLE_UNKNOWN = 0
+uint8 ROLE_AOA = 1
+uint8 ROLE_SIDESLIP = 2
+
 uint64 timestamp         # [us] Time of publication (since system start)
 uint64 timestamp_sample  # [us] Time of raw data capture
 
 uint32 device_id         # [-] Unique device ID for the sensor that does not change between power cycles
 uint32 error_count       # [-] Number of errors detected by driver
+uint8 sensor_role        # [-] ROLE_AOA or ROLE_SIDESLIP
 
 uint16 raw_angle         # [-] Raw 12-bit angle count from the AS5600 hall sensor (0..4095)
 float32 angle_rad        # [rad] AoA angle after optional parameter-based calibration/interpolation, wrapped to [-pi, pi]

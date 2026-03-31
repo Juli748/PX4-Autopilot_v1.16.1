@@ -198,6 +198,33 @@ then
 	sht3x start -X -a 0x45
 fi
 
+# AS5600 AoA / sideslip vane sensors, external I2C
+if param compare -s SENS_AOA_ADDR 54
+then
+	aoa_vane_as5600 start -X -a 0x36 -R aoa
+fi
+
+if param compare -s SENS_AOA_ADDR 64
+then
+	aoa_vane_as5600 start -X -a 0x40 -R aoa
+fi
+
+if param compare -s SENS_SSA_ADDR 54
+then
+	if ! param compare SENS_AOA_ADDR 54
+	then
+		aoa_vane_as5600 start -X -a 0x36 -R ssa
+	fi
+fi
+
+if param compare -s SENS_SSA_ADDR 64
+then
+	if ! param compare SENS_AOA_ADDR 64
+	then
+		aoa_vane_as5600 start -X -a 0x40 -R ssa
+	fi
+fi
+
 # IR-LOCK sensor external I2C
 if param compare -s SENS_EN_IRLOCK 1
 then

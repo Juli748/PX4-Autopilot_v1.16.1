@@ -41,11 +41,16 @@ namespace
 static constexpr float CALIBRATION_ANGLES_DEG[AoaVaneAS5600::CAL_POINT_COUNT] {0.f, 5.f, 10.f, 15.f, 20.f, 45.f};
 }
 
-AoaVaneAS5600::AoaVaneAS5600(const I2CSPIDriverConfig &config) :
+AoaVaneAS5600::AoaVaneAS5600(const I2CSPIDriverConfig &config, SensorRole role) :
 	I2C(config),
-	I2CSPIDriver(config)
+	I2CSPIDriver(config),
+	_role(role)
 {
 	set_device_type(DRV_SENS_DEVTYPE_AOA_VANE_AS5600);
+
+	for (int i = 0; i < PARAM_HANDLE_COUNT; ++i) {
+		_param_handles[i] = param_find(param_name(_role, i));
+	}
 }
 
 AoaVaneAS5600::~AoaVaneAS5600()
@@ -66,6 +71,39 @@ int AoaVaneAS5600::init()
 	update_params(true);
 	ScheduleOnInterval(SAMPLE_INTERVAL_US, SAMPLE_INTERVAL_US);
 	return PX4_OK;
+}
+
+I2CSPIDriverBase *AoaVaneAS5600::instantiate(const I2CSPIDriverConfig &config, int runtime_instance)
+{
+	SensorRole role = SensorRole::Unknown;
+
+	switch (config.custom1) {
+	case static_cast<int32_t>(SensorRole::Aoa):
+		role = SensorRole::Aoa;
+		break;
+
+	case static_cast<int32_t>(SensorRole::Sideslip):
+		role = SensorRole::Sideslip;
+		break;
+
+	default:
+		PX4_ERR("invalid sensor role");
+		return nullptr;
+	}
+
+	AoaVaneAS5600 *instance = new AoaVaneAS5600(config, role);
+
+	if (instance == nullptr) {
+		PX4_ERR("alloc failed");
+		return nullptr;
+	}
+
+	if (instance->init() != PX4_OK) {
+		delete instance;
+		return nullptr;
+	}
+
+	return instance;
 }
 
 int AoaVaneAS5600::probe()
@@ -344,6 +382,7 @@ void AoaVaneAS5600::RunImpl()
 		sensor_aoa.timestamp_sample = timestamp_sample;
 		sensor_aoa.device_id = get_device_id();
 		sensor_aoa.error_count = _error_count;
+		sensor_aoa.sensor_role = static_cast<uint8_t>(_role);
 		sensor_aoa.raw_angle = raw_angle;
 		sensor_aoa.angle_rad = angle_rad;
 		sensor_aoa.angle_deg = angle_deg;
@@ -367,6 +406,7 @@ void AoaVaneAS5600::RunImpl()
 void AoaVaneAS5600::print_status()
 {
 	I2CSPIDriverBase::print_status();
+	PX4_INFO("role: %s", role_name(_role));
 	PX4_INFO("error_count: %" PRIu32, _error_count);
 	PX4_INFO("aoa calibration: %s", _calibration.valid ? "enabled" : (_calibration.enabled ? "invalid" : "disabled"));
 	PX4_INFO("aoa sign: %" PRId32, _calibration.sign);
@@ -374,4 +414,53 @@ void AoaVaneAS5600::print_status()
 	PX4_INFO("aoa fast threshold: %" PRId32 " LSB", _calibration.fast_filter_threshold);
 	perf_print_counter(_sample_perf);
 	perf_print_counter(_comms_errors);
+}
+
+const char *AoaVaneAS5600::role_name(SensorRole role)
+{
+	switch (role) {
+	case SensorRole::Aoa:
+		return "aoa";
+
+	case SensorRole::Sideslip:
+		return "sideslip";
+
+	default:
+		return "unknown";
+	}
+}
+
+const char *AoaVaneAS5600::param_name(SensorRole role, int index)
+{
+	static constexpr const char *aoa_param_names[PARAM_HANDLE_COUNT] = {
+		"SENS_AOA_CAL_EN",
+		"SENS_AOA_SIGN",
+		"SENS_AOA_SF",
+		"SENS_AOA_FTH",
+		"SENS_AOA_RAW_0",
+		"SENS_AOA_RAW_5",
+		"SENS_AOA_RAW_10",
+		"SENS_AOA_RAW_15",
+		"SENS_AOA_RAW_20",
+		"SENS_AOA_RAW_45",
+	};
+
+	static constexpr const char *ssa_param_names[PARAM_HANDLE_COUNT] = {
+		"SENS_SSA_CAL_EN",
+		"SENS_SSA_SIGN",
+		"SENS_SSA_SF",
+		"SENS_SSA_FTH",
+		"SENS_SSA_RAW_0",
+		"SENS_SSA_RAW_5",
+		"SENS_SSA_RAW_10",
+		"SENS_SSA_RAW_15",
+		"SENS_SSA_RAW_20",
+		"SENS_SSA_RAW_45",
+	};
+
+	if (index < 0 || index >= PARAM_HANDLE_COUNT) {
+		return "";
+	}
+
+	return (role == SensorRole::Sideslip) ? ssa_param_names[index] : aoa_param_names[index];
 }

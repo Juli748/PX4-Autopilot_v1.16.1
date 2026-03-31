@@ -33,6 +33,8 @@
 
 #include "AoaVaneAS5600.hpp"
 
+#include <cstring>
+
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/module.h>
 
@@ -43,6 +45,7 @@ void AoaVaneAS5600::print_usage()
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(true, false);
 	PRINT_MODULE_USAGE_PARAMS_I2C_ADDRESS(AoaVaneAS5600::I2C_ADDRESS_DEFAULT);
+	PRINT_MODULE_USAGE_PARAM_STRING('R', "aoa", "aoa|ssa", "Sensor role", false);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
 
@@ -52,8 +55,29 @@ extern "C" __EXPORT int aoa_vane_as5600_main(int argc, char *argv[])
 	BusCLIArguments cli{true, false};
 	cli.default_i2c_frequency = ThisDriver::I2C_SPEED_DEFAULT;
 	cli.i2c_address = ThisDriver::I2C_ADDRESS_DEFAULT;
+	cli.custom1 = static_cast<int32_t>(ThisDriver::SensorRole::Aoa);
 
-	const char *verb = cli.parseDefaultArguments(argc, argv);
+	int ch;
+
+	while ((ch = cli.getOpt(argc, argv, "R:")) != EOF) {
+		switch (ch) {
+		case 'R':
+			if (strcmp(cli.optArg(), "aoa") == 0) {
+				cli.custom1 = static_cast<int32_t>(ThisDriver::SensorRole::Aoa);
+
+			} else if ((strcmp(cli.optArg(), "ssa") == 0) || (strcmp(cli.optArg(), "sideslip") == 0)) {
+				cli.custom1 = static_cast<int32_t>(ThisDriver::SensorRole::Sideslip);
+
+			} else {
+				PX4_ERR("unknown role");
+				return -1;
+			}
+
+			break;
+		}
+	}
+
+	const char *verb = cli.optArg();
 
 	if (!verb) {
 		ThisDriver::print_usage();
