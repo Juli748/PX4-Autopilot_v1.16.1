@@ -37,7 +37,9 @@
 #include <stdint.h>
 #include <drivers/device/i2c.h>
 #include <px4_platform_common/i2c_spi_buses.h>
+#include <uORB/topics/debug_key_value.h>
 #include <uORB/topics/sensor_temp.h>
+#include <uORB/Publication.hpp>
 #include <uORB/PublicationMulti.hpp>
 #include <lib/perf/perf_counter.h>
 #include <drivers/drv_hrt.h>
@@ -65,10 +67,12 @@ protected:
 	void print_status();
 
 private:
+	uORB::Publication<debug_key_value_s> _debug_key_value_pub{ORB_ID(debug_key_value)};
 	uORB::PublicationMulti<sensor_temp_s> _sensor_temp_pub{ORB_ID(sensor_temp)};
 	int read_reg(uint8_t address, uint16_t &data);
 	int write_reg(uint8_t address, uint16_t value);
 	float read_temperature();
+	void publish_debug_temperature(float temperature);
 	sensor_temp_s _sensor_temp{};
 	perf_counter_t _cycle_perf;
 	perf_counter_t _comms_errors;

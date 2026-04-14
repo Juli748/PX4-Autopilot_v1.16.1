@@ -33,6 +33,8 @@
 
 #include "mcp9808.h"
 
+#include <cstring>
+
 MCP9808::MCP9808(const I2CSPIDriverConfig &config) :
 	I2C(config),
 	I2CSPIDriver(config),
@@ -64,6 +66,7 @@ void MCP9808::RunImpl()
 		_sensor_temp.temperature = temperature;
 
 		_sensor_temp_pub.publish(_sensor_temp);
+		publish_debug_temperature(temperature);
 	}
 
 	perf_end(_cycle_perf);
@@ -116,6 +119,16 @@ int MCP9808::init()
 
 	ScheduleOnInterval(200_ms); // Sample at 5 Hz
 	return PX4_OK;
+}
+
+void MCP9808::publish_debug_temperature(float temperature)
+{
+	debug_key_value_s debug{};
+	debug.timestamp = _sensor_temp.timestamp;
+	debug.value = temperature;
+	strncpy(debug.key, "mcp9808_t", sizeof(debug.key) - 1);
+	debug.key[sizeof(debug.key) - 1] = '\0';
+	_debug_key_value_pub.publish(debug);
 }
 
 float MCP9808::read_temperature()
