@@ -37,6 +37,7 @@
 #include <drivers/device/i2c.h>
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>
+#include <lib/systemlib/mavlink_log.h>
 #include <parameters/param.h>
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/i2c_spi_buses.h>
@@ -56,7 +57,7 @@ public:
 	static constexpr uint8_t I2C_ADDRESS_DEFAULT = 0x36;
 	static constexpr uint8_t I2C_ADDRESS_ALTERNATE = 0x40;
 	static constexpr uint32_t I2C_SPEED_DEFAULT = 100000;
-	static constexpr int CAL_POINT_COUNT = 6;
+	static constexpr int CAL_POINT_COUNT = 5;
 
 	enum class SensorRole : int32_t {
 		Unknown = sensor_aoa_s::ROLE_UNKNOWN,
@@ -86,10 +87,13 @@ private:
 
 	struct CalibrationData {
 		bool enabled{false};
+		bool has_zero_reference{false};
 		bool valid{false};
+		bool zero_offset_only{false};
 		int32_t sign{1};
 		int32_t slow_filter{16};
 		int32_t fast_filter_threshold{0};
+		int32_t zero_raw_count{0};
 		int32_t raw_points[CAL_POINT_COUNT]{};
 	};
 
@@ -120,6 +124,8 @@ private:
 
 	CalibrationData _calibration{};
 	uint32_t _error_count{0};
+	bool _missing_zero_reference_reported{false};
+	orb_advert_t _mavlink_log_pub{nullptr};
 
 	static const char *role_name(SensorRole role);
 	static const char *param_name(SensorRole role, int index);

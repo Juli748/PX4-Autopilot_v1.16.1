@@ -39,7 +39,8 @@
 
 namespace
 {
-static constexpr float CALIBRATION_ANGLES_DEG[AoaVaneAS5600::CAL_POINT_COUNT] {0.f, 5.f, 10.f, 15.f, 20.f, 45.f};
+static constexpr float CALIBRATION_ANGLES_DEG[AoaVaneAS5600::CAL_POINT_COUNT] {-10.f, -5.f, 0.f, 5.f, 10.f};
+static constexpr int ZERO_POINT_INDEX = 2;
 static constexpr hrt_abstime AGGREGATE_SAMPLE_TIMEOUT_US = 500_ms;
 
 struct AggregateRoleSample {
@@ -267,8 +268,25 @@ void AoaVaneAS5600::update_params(bool force)
 		param_get(_param_handles[i + 4], &_calibration.raw_points[i]);
 	}
 
+	_calibration.zero_raw_count = _calibration.raw_points[ZERO_POINT_INDEX];
+	_calibration.has_zero_reference = (_calibration.zero_raw_count != 0);
+	_calibration.zero_offset_only = _calibration.has_zero_reference
+					&& (_calibration.raw_points[0] == 0)
+					&& (_calibration.raw_points[1] == 0)
+					&& (_calibration.raw_points[3] == 0)
+					&& (_calibration.raw_points[4] == 0);
+
+	if (!_calibration.has_zero_reference && !_missing_zero_reference_reported) {
+		mavlink_log_critical(&_mavlink_log_pub, "%s probe missing zero raw calibration reference\t", role_name(_role));
+		PX4_ERR("%s probe missing zero raw calibration reference", role_name(_role));
+		_missing_zero_reference_reported = true;
+
+	} else if (_calibration.has_zero_reference) {
+		_missing_zero_reference_reported = false;
+	}
+
 	int32_t unwrapped_points[CAL_POINT_COUNT] {};
-	_calibration.valid = _calibration.enabled && build_calibration_points(unwrapped_points);
+	_calibration.valid = _calibration.enabled && _calibration.has_zero_reference && build_calibration_points(unwrapped_points);
 
 	const int ret = update_conf_register();
 
@@ -330,8 +348,22 @@ bool AoaVaneAS5600::build_calibration_points(int32_t (&unwrapped_points)[CAL_POI
 
 float AoaVaneAS5600::calibrated_angle_deg(uint16_t raw_angle) const
 {
+	if (!_calibration.has_zero_reference) {
+		return NAN;
+	}
+
+	if (_calibration.zero_offset_only) {
+		const int32_t raw_unwrapped = unwrap_raw_count(raw_angle, _calibration.zero_raw_count);
+		const float angle_deg = static_cast<float>(raw_unwrapped - _calibration.zero_raw_count) * 360.f
+					/ static_cast<float>(RAW_ANGLE_MAX);
+		return wrap_angle_180(_calibration.sign * angle_deg);
+	}
+
 	if (!_calibration.valid) {
-		return wrap_angle_180(_calibration.sign * ((static_cast<float>(raw_angle) * 360.f) / static_cast<float>(RAW_ANGLE_MAX)));
+		const int32_t raw_unwrapped = unwrap_raw_count(raw_angle, _calibration.zero_raw_count);
+		const float angle_deg = static_cast<float>(raw_unwrapped - _calibration.zero_raw_count) * 360.f
+					/ static_cast<float>(RAW_ANGLE_MAX);
+		return wrap_angle_180(_calibration.sign * angle_deg);
 	}
 
 	int32_t calibration_points[CAL_POINT_COUNT] {};
@@ -351,13 +383,16 @@ float AoaVaneAS5600::calibrated_angle_deg(uint16_t raw_angle) const
 		}
 
 		if (raw_unwrapped < calibration_points[0]) {
-			raw_unwrapped += RAW_ANGLE_MAX;
+			const float span = static_cast<float>(calibration_points[1] - calibration_points[0]);
+			const float ratio = static_cast<float>(raw_unwrapped - calibration_points[0]) / span;
+			const float angle_deg = CALIBRATION_ANGLES_DEG[0] + ratio * (CALIBRATION_ANGLES_DEG[1] - CALIBRATION_ANGLES_DEG[0]);
+			return wrap_angle_180(_calibration.sign * angle_deg);
 		}
 
 		const int last = CAL_POINT_COUNT - 1;
-		const float span = static_cast<float>((calibration_points[0] + RAW_ANGLE_MAX) - calibration_points[last]);
-		const float ratio = static_cast<float>(raw_unwrapped - calibration_points[last]) / span;
-		const float angle_deg = CALIBRATION_ANGLES_DEG[last] + ratio * ((CALIBRATION_ANGLES_DEG[0] + 360.f) - CALIBRATION_ANGLES_DEG[last]);
+		const float span = static_cast<float>(calibration_points[last] - calibration_points[last - 1]);
+		const float ratio = static_cast<float>(raw_unwrapped - calibration_points[last - 1]) / span;
+		const float angle_deg = CALIBRATION_ANGLES_DEG[last - 1] + ratio * (CALIBRATION_ANGLES_DEG[last] - CALIBRATION_ANGLES_DEG[last - 1]);
 		return wrap_angle_180(_calibration.sign * angle_deg);
 
 	} else {
@@ -371,13 +406,16 @@ float AoaVaneAS5600::calibrated_angle_deg(uint16_t raw_angle) const
 		}
 
 		if (raw_unwrapped > calibration_points[0]) {
-			raw_unwrapped -= RAW_ANGLE_MAX;
+			const float span = static_cast<float>(calibration_points[1] - calibration_points[0]);
+			const float ratio = static_cast<float>(raw_unwrapped - calibration_points[0]) / span;
+			const float angle_deg = CALIBRATION_ANGLES_DEG[0] + ratio * (CALIBRATION_ANGLES_DEG[1] - CALIBRATION_ANGLES_DEG[0]);
+			return wrap_angle_180(_calibration.sign * angle_deg);
 		}
 
 		const int last = CAL_POINT_COUNT - 1;
-		const float span = static_cast<float>((calibration_points[0] - RAW_ANGLE_MAX) - calibration_points[last]);
-		const float ratio = static_cast<float>(raw_unwrapped - calibration_points[last]) / span;
-		const float angle_deg = CALIBRATION_ANGLES_DEG[last] + ratio * ((CALIBRATION_ANGLES_DEG[0] - 360.f) - CALIBRATION_ANGLES_DEG[last]);
+		const float span = static_cast<float>(calibration_points[last] - calibration_points[last - 1]);
+		const float ratio = static_cast<float>(raw_unwrapped - calibration_points[last - 1]) / span;
+		const float angle_deg = CALIBRATION_ANGLES_DEG[last - 1] + ratio * (CALIBRATION_ANGLES_DEG[last] - CALIBRATION_ANGLES_DEG[last - 1]);
 		return wrap_angle_180(_calibration.sign * angle_deg);
 	}
 }
@@ -479,10 +517,12 @@ void AoaVaneAS5600::print_status()
 	I2CSPIDriverBase::print_status();
 	PX4_INFO("role: %s", role_name(_role));
 	PX4_INFO("error_count: %" PRIu32, _error_count);
-	PX4_INFO("aoa calibration: %s", _calibration.valid ? "enabled" : (_calibration.enabled ? "invalid" : "disabled"));
-	PX4_INFO("aoa sign: %" PRId32, _calibration.sign);
-	PX4_INFO("aoa slow filter: %" PRId32 "x", _calibration.slow_filter);
-	PX4_INFO("aoa fast threshold: %" PRId32 " LSB", _calibration.fast_filter_threshold);
+	PX4_INFO("calibration: %s", _calibration.valid ? "enabled" :
+		 (_calibration.zero_offset_only ? "zero-offset" :
+		  (_calibration.has_zero_reference ? (_calibration.enabled ? "zero-reference" : "zero-reference only") : "missing zero-reference")));
+	PX4_INFO("sign: %" PRId32, _calibration.sign);
+	PX4_INFO("slow filter: %" PRId32 "x", _calibration.slow_filter);
+	PX4_INFO("fast threshold: %" PRId32 " LSB", _calibration.fast_filter_threshold);
 	perf_print_counter(_sample_perf);
 	perf_print_counter(_comms_errors);
 }
@@ -508,12 +548,11 @@ const char *AoaVaneAS5600::param_name(SensorRole role, int index)
 		"SENS_AOA_SIGN",
 		"SENS_AOA_SF",
 		"SENS_AOA_FTH",
+		"SENS_AOA_RAW_M10",
+		"SENS_AOA_RAW_M5",
 		"SENS_AOA_RAW_0",
 		"SENS_AOA_RAW_5",
 		"SENS_AOA_RAW_10",
-		"SENS_AOA_RAW_15",
-		"SENS_AOA_RAW_20",
-		"SENS_AOA_RAW_45",
 	};
 
 	static constexpr const char *ssa_param_names[PARAM_HANDLE_COUNT] = {
@@ -521,12 +560,11 @@ const char *AoaVaneAS5600::param_name(SensorRole role, int index)
 		"SENS_SSA_SIGN",
 		"SENS_SSA_SF",
 		"SENS_SSA_FTH",
+		"SENS_SSA_RAW_M10",
+		"SENS_SSA_RAW_M5",
 		"SENS_SSA_RAW_0",
 		"SENS_SSA_RAW_5",
 		"SENS_SSA_RAW_10",
-		"SENS_SSA_RAW_15",
-		"SENS_SSA_RAW_20",
-		"SENS_SSA_RAW_45",
 	};
 
 	if (index < 0 || index >= PARAM_HANDLE_COUNT) {

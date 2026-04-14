@@ -84,6 +84,28 @@ PARAM_DEFINE_INT32(SENS_AOA_SF, 16);
 PARAM_DEFINE_INT32(SENS_AOA_FTH, 0);
 
 /**
+ * AoA vane raw count at -10 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at -10 degrees angle of attack.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_AOA_RAW_M10, 0);
+
+/**
+ * AoA vane raw count at -5 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at -5 degrees angle of attack.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_AOA_RAW_M5, 0);
+
+/**
  * AoA vane raw count at 0 degrees
  *
  * Raw AS5600 reading with the vane fixed at 0 degrees angle of attack.
@@ -115,39 +137,6 @@ PARAM_DEFINE_INT32(SENS_AOA_RAW_5, 0);
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_AOA_RAW_10, 0);
-
-/**
- * AoA vane raw count at 15 degrees
- *
- * Raw AS5600 reading with the vane fixed at 15 degrees angle of attack.
- *
- * @min 0
- * @max 4095
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_AOA_RAW_15, 0);
-
-/**
- * AoA vane raw count at 20 degrees
- *
- * Raw AS5600 reading with the vane fixed at 20 degrees angle of attack.
- *
- * @min 0
- * @max 4095
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_AOA_RAW_20, 0);
-
-/**
- * AoA vane raw count at 45 degrees
- *
- * Raw AS5600 reading with the vane fixed at 45 degrees angle of attack.
- *
- * @min 0
- * @max 4095
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_AOA_RAW_45, 0);
 
 /**
  * AoA probe I2C address
@@ -213,6 +202,28 @@ PARAM_DEFINE_INT32(SENS_SSA_SF, 16);
 PARAM_DEFINE_INT32(SENS_SSA_FTH, 0);
 
 /**
+ * Sideslip vane raw count at -10 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at -10 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_M10, 0);
+
+/**
+ * Sideslip vane raw count at -5 degrees
+ *
+ * Raw AS5600 reading with the vane fixed at -5 degrees sideslip angle.
+ *
+ * @min 0
+ * @max 4095
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_SSA_RAW_M5, 0);
+
+/**
  * Sideslip vane raw count at 0 degrees
  *
  * Raw AS5600 reading with the vane fixed at 0 degrees sideslip angle.
@@ -244,39 +255,6 @@ PARAM_DEFINE_INT32(SENS_SSA_RAW_5, 0);
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_SSA_RAW_10, 0);
-
-/**
- * Sideslip vane raw count at 15 degrees
- *
- * Raw AS5600 reading with the vane fixed at 15 degrees sideslip angle.
- *
- * @min 0
- * @max 4095
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_SSA_RAW_15, 0);
-
-/**
- * Sideslip vane raw count at 20 degrees
- *
- * Raw AS5600 reading with the vane fixed at 20 degrees sideslip angle.
- *
- * @min 0
- * @max 4095
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_SSA_RAW_20, 0);
-
-/**
- * Sideslip vane raw count at 45 degrees
- *
- * Raw AS5600 reading with the vane fixed at 45 degrees sideslip angle.
- *
- * @min 0
- * @max 4095
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_SSA_RAW_45, 0);
 
 /**
  * Sideslip probe I2C address
