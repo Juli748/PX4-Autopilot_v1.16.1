@@ -194,6 +194,7 @@ set(msg_files
 	SensorAccel.msg
 	SensorAccelFifo.msg
 	SensorAoa.msg
+	SensorAirflowAngles.msg
 	SensorBaro.msg
 	SensorCombined.msg
 	SensorCorrection.msg

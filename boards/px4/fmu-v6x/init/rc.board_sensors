@@ -130,10 +130,8 @@ then
 	ist8310 -X -b 1 -R 10 start
 fi
 
-# Auto-start AS5600 vane sensors on external I2C bus 3 (SCL3/SDA3).
-# Seawind uses one AoA vane at 0x36 and one sideslip vane at 0x40.
-aoa_vane_as5600 start -X -b 3 -a 0x36 -R aoa -q
-aoa_vane_as5600 start -X -b 3 -a 0x40 -R ssa -q
+# AS5600 vane sensors are started by the common rc.sensors script based on
+# SENS_AOA_ADDR and SENS_SSA_ADDR, so the probe roles follow parameter config.
 
 # Possible internal Baro
 if param compare SENS_INT_BARO_EN 1

@@ -45,6 +45,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionInterval.hpp>
 #include <uORB/topics/sensor_aoa.h>
+#include <uORB/topics/sensor_airflow_angles.h>
 #include <uORB/topics/parameter_update.h>
 
 using namespace time_literals;
@@ -97,6 +98,7 @@ private:
 	int read_diagnostics(uint8_t &status, uint8_t &agc, uint16_t &magnitude);
 	int update_conf_register();
 	void update_params(bool force = false);
+	void publish_aggregate_topic(const sensor_aoa_s &sensor_aoa);
 	float calibrated_angle_deg(uint16_t raw_angle) const;
 	bool build_calibration_points(int32_t (&unwrapped_points)[CAL_POINT_COUNT]) const;
 	static int32_t unwrap_raw_count(int32_t raw_count, int32_t reference);
@@ -107,6 +109,7 @@ private:
 	static constexpr int PARAM_HANDLE_COUNT = CAL_POINT_COUNT + 4;
 
 	uORB::PublicationMulti<sensor_aoa_s> _sensor_aoa_pub{ORB_ID(sensor_aoa)};
+	uORB::Publication<sensor_airflow_angles_s> _sensor_airflow_angles_pub{ORB_ID(sensor_airflow_angles)};
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	perf_counter_t _sample_perf{perf_alloc(PC_ELAPSED, MODULE_NAME": read")};

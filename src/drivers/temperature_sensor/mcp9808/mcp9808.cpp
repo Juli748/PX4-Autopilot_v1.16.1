@@ -66,7 +66,6 @@ void MCP9808::RunImpl()
 		_sensor_temp.temperature = temperature;
 
 		_sensor_temp_pub.publish(_sensor_temp);
-		publish_debug_temperature(temperature);
 	}
 
 	perf_end(_cycle_perf);

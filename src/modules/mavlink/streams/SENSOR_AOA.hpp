@@ -34,61 +34,93 @@
 #ifndef SENSOR_AOA_HPP
 #define SENSOR_AOA_HPP
 
-#include <cstring>
+#include <math.h>
 
+#include <uORB/topics/parameter_update.h>
+#include <uORB/Subscription.hpp>
 #include <uORB/SubscriptionMultiArray.hpp>
-#include <uORB/topics/sensor_aoa.h>
+#include <uORB/topics/sensor_airflow_angles.h>
+#include <uORB/topics/sensor_temp.h>
 
-class MavlinkStreamSensorAoa : public MavlinkStream
+class MavlinkStreamSensorAoa : public ModuleParams, public MavlinkStream
 {
 public:
 	static MavlinkStream *new_instance(Mavlink *mavlink) { return new MavlinkStreamSensorAoa(mavlink); }
 
-	static constexpr const char *get_name_static() { return "SENSOR_AOA"; }
-	static constexpr uint16_t get_id_static() { return MAVLINK_MSG_ID_DEBUG_FLOAT_ARRAY; }
+	static constexpr const char *get_name_static() { return "SENSOR_AIRFLOW_ANGLES"; }
+	static constexpr uint16_t get_id_static() { return MAVLINK_MSG_ID_DEBUG_VECT; }
 
 	const char *get_name() const override { return get_name_static(); }
 	uint16_t get_id() override { return get_id_static(); }
 
 	unsigned get_size() override
 	{
-		return _sensor_aoa_subs.advertised_count() * (MAVLINK_MSG_ID_DEBUG_FLOAT_ARRAY_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES);
+		return (_sensor_airflow_angles_sub.advertised() || _sensor_temp_subs.advertised_count() > 0) ?
+		       MAVLINK_MSG_ID_DEBUG_VECT_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES : 0;
 	}
 
 private:
-	explicit MavlinkStreamSensorAoa(Mavlink *mavlink) : MavlinkStream(mavlink) {}
+	explicit MavlinkStreamSensorAoa(Mavlink *mavlink) : ModuleParams(nullptr), MavlinkStream(mavlink) {}
 
-	uORB::SubscriptionMultiArray<sensor_aoa_s> _sensor_aoa_subs{ORB_ID::sensor_aoa};
+	static constexpr hrt_abstime kAirflowTimeout = 500_ms;
+	static constexpr hrt_abstime kTemperatureTimeout = 2_s;
+
+	uORB::Subscription _parameter_update_sub{ORB_ID(parameter_update)};
+	uORB::Subscription _sensor_airflow_angles_sub{ORB_ID::sensor_airflow_angles};
+	uORB::SubscriptionMultiArray<sensor_temp_s> _sensor_temp_subs{ORB_ID::sensor_temp};
+
+	sensor_airflow_angles_s _last_airflow{};
+	sensor_temp_s _last_temp{};
+
+	DEFINE_PARAMETERS(
+		(ParamInt<px4::params::MAV_AIRFLOW_MODE>) _param_mav_airflow_mode
+	);
 
 	bool send() override
 	{
+		parameter_update_s parameter_update;
+
+		if (_parameter_update_sub.update(&parameter_update)) {
+			updateParams();
+		}
+
 		bool updated = false;
+		sensor_airflow_angles_s sensor_airflow_angles{};
 
-		for (int i = 0; i < _sensor_aoa_subs.size(); i++) {
-			sensor_aoa_s sensor_aoa{};
+		if (_sensor_airflow_angles_sub.update(&sensor_airflow_angles)) {
+			_last_airflow = sensor_airflow_angles;
+			updated = true;
+		}
 
-			if (_sensor_aoa_subs[i].update(&sensor_aoa)) {
-				mavlink_debug_float_array_t msg{};
-				msg.time_usec = sensor_aoa.timestamp;
-				msg.array_id = i;
-				memcpy(msg.name, (sensor_aoa.sensor_role == sensor_aoa_s::ROLE_SIDESLIP) ? "SENSOR_SSA" : "SENSOR_AOA", 10);
-				msg.data[0] = sensor_aoa.angle_deg;
-				msg.data[1] = static_cast<float>(sensor_aoa.raw_angle);
-				msg.data[2] = sensor_aoa.angle_rad;
-				msg.data[3] = static_cast<float>(sensor_aoa.status);
-				msg.data[4] = static_cast<float>(sensor_aoa.agc);
-				msg.data[5] = static_cast<float>(sensor_aoa.magnitude);
-				msg.data[6] = sensor_aoa.magnet_detected ? 1.f : 0.f;
-				msg.data[7] = sensor_aoa.magnet_too_weak ? 1.f : 0.f;
-				msg.data[8] = sensor_aoa.magnet_too_strong ? 1.f : 0.f;
-				msg.data[9] = static_cast<float>(sensor_aoa.sensor_role);
+		for (int i = 0; i < _sensor_temp_subs.size(); i++) {
+			sensor_temp_s sensor_temp{};
 
-				mavlink_msg_debug_float_array_send_struct(_mavlink->get_channel(), &msg);
+			if (_sensor_temp_subs[i].update(&sensor_temp)) {
+				_last_temp = sensor_temp;
 				updated = true;
 			}
 		}
 
-		return updated;
+		if (!updated) {
+			return false;
+		}
+
+		const hrt_abstime now = hrt_absolute_time();
+		const bool airflow_fresh = (_last_airflow.timestamp != 0) && ((now - _last_airflow.timestamp) <= kAirflowTimeout);
+		const bool temp_fresh = (_last_temp.timestamp != 0) && ((now - _last_temp.timestamp) <= kTemperatureTimeout);
+		const bool raw_mode = (_param_mav_airflow_mode.get() == 1);
+
+		mavlink_debug_vect_t msg{};
+		msg.time_usec = now;
+		memcpy(msg.name, raw_mode ? "AIRFLOWRAW" : "AIRFLOW", raw_mode ? 10 : 8);
+		msg.x = (airflow_fresh && _last_airflow.aoa_valid) ?
+			(raw_mode ? static_cast<float>(_last_airflow.aoa_raw_angle) : _last_airflow.aoa_angle_deg) : NAN;
+		msg.y = (airflow_fresh && _last_airflow.ssa_valid) ?
+			(raw_mode ? static_cast<float>(_last_airflow.ssa_raw_angle) : _last_airflow.ssa_angle_deg) : NAN;
+		msg.z = temp_fresh ? _last_temp.temperature : NAN;
+		mavlink_msg_debug_vect_send_struct(_mavlink->get_channel(), &msg);
+
+		return true;
 	}
 };
 

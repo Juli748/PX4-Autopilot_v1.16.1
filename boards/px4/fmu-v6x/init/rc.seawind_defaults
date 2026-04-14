@@ -15,5 +15,10 @@ param set-default CAL_MAG1_PRIO 0
 param set-default CAL_MAG2_PRIO 0
 param set-default CAL_MAG3_PRIO 0
 
+# Default Seawind vane address assignment.
+# Change these parameters if the physical probes are wired the other way around.
+param set-default SENS_AOA_ADDR 54
+param set-default SENS_SSA_ADDR 64
+
 # Consumed by rc.board_sensors to skip the GPS1 external compass autostart.
 set SEAWIND_DISABLE_EXTERNAL_MAG yes

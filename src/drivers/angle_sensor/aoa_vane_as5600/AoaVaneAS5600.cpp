@@ -35,10 +35,30 @@
 
 #include <inttypes.h>
 #include <mathlib/mathlib.h>
+#include <pthread.h>
 
 namespace
 {
 static constexpr float CALIBRATION_ANGLES_DEG[AoaVaneAS5600::CAL_POINT_COUNT] {0.f, 5.f, 10.f, 15.f, 20.f, 45.f};
+static constexpr hrt_abstime AGGREGATE_SAMPLE_TIMEOUT_US = 500_ms;
+
+struct AggregateRoleSample {
+	hrt_abstime timestamp{0};
+	hrt_abstime timestamp_sample{0};
+	uint32_t device_id{0};
+	uint32_t error_count{0};
+	uint16_t raw_angle{0};
+	float angle_rad{NAN};
+	float angle_deg{NAN};
+};
+
+struct AggregateCache {
+	pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	AggregateRoleSample aoa{};
+	AggregateRoleSample ssa{};
+};
+
+AggregateCache g_aggregate_cache{};
 }
 
 AoaVaneAS5600::AoaVaneAS5600(const I2CSPIDriverConfig &config, SensorRole role) :
@@ -394,6 +414,7 @@ void AoaVaneAS5600::RunImpl()
 		sensor_aoa.magnet_too_strong = (status & 0x08) != 0;
 		sensor_aoa.timestamp = hrt_absolute_time();
 		_sensor_aoa_pub.publish(sensor_aoa);
+		publish_aggregate_topic(sensor_aoa);
 
 	} else {
 		++_error_count;
@@ -401,6 +422,56 @@ void AoaVaneAS5600::RunImpl()
 	}
 
 	perf_end(_sample_perf);
+}
+
+void AoaVaneAS5600::publish_aggregate_topic(const sensor_aoa_s &sensor_aoa)
+{
+	AggregateRoleSample current_role_sample{};
+	current_role_sample.timestamp = sensor_aoa.timestamp;
+	current_role_sample.timestamp_sample = sensor_aoa.timestamp_sample;
+	current_role_sample.device_id = sensor_aoa.device_id;
+	current_role_sample.error_count = sensor_aoa.error_count;
+	current_role_sample.raw_angle = sensor_aoa.raw_angle;
+	current_role_sample.angle_rad = sensor_aoa.angle_rad;
+	current_role_sample.angle_deg = sensor_aoa.angle_deg;
+
+	AggregateRoleSample aoa_sample{};
+	AggregateRoleSample ssa_sample{};
+
+	pthread_mutex_lock(&g_aggregate_cache.lock);
+
+	if (sensor_aoa.sensor_role == sensor_aoa_s::ROLE_SIDESLIP) {
+		g_aggregate_cache.ssa = current_role_sample;
+
+	} else {
+		g_aggregate_cache.aoa = current_role_sample;
+	}
+
+	aoa_sample = g_aggregate_cache.aoa;
+	ssa_sample = g_aggregate_cache.ssa;
+
+	pthread_mutex_unlock(&g_aggregate_cache.lock);
+
+	const hrt_abstime now = sensor_aoa.timestamp;
+	const bool aoa_valid = (aoa_sample.timestamp != 0) && ((now - aoa_sample.timestamp) <= AGGREGATE_SAMPLE_TIMEOUT_US);
+	const bool ssa_valid = (ssa_sample.timestamp != 0) && ((now - ssa_sample.timestamp) <= AGGREGATE_SAMPLE_TIMEOUT_US);
+
+	sensor_airflow_angles_s aggregate{};
+	aggregate.timestamp = now;
+	aggregate.timestamp_sample = math::max(aoa_sample.timestamp_sample, ssa_sample.timestamp_sample);
+	aggregate.aoa_valid = aoa_valid;
+	aggregate.ssa_valid = ssa_valid;
+	aggregate.aoa_device_id = aoa_valid ? aoa_sample.device_id : 0;
+	aggregate.ssa_device_id = ssa_valid ? ssa_sample.device_id : 0;
+	aggregate.aoa_error_count = aoa_valid ? aoa_sample.error_count : 0;
+	aggregate.ssa_error_count = ssa_valid ? ssa_sample.error_count : 0;
+	aggregate.aoa_raw_angle = aoa_valid ? aoa_sample.raw_angle : 0;
+	aggregate.ssa_raw_angle = ssa_valid ? ssa_sample.raw_angle : 0;
+	aggregate.aoa_angle_rad = aoa_valid ? aoa_sample.angle_rad : NAN;
+	aggregate.ssa_angle_rad = ssa_valid ? ssa_sample.angle_rad : NAN;
+	aggregate.aoa_angle_deg = aoa_valid ? aoa_sample.angle_deg : NAN;
+	aggregate.ssa_angle_deg = ssa_valid ? ssa_sample.angle_deg : NAN;
+	_sensor_airflow_angles_pub.publish(aggregate);
 }
 
 void AoaVaneAS5600::print_status()

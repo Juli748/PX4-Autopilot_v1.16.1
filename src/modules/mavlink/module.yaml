@@ -229,6 +229,19 @@ parameters:
             reboot_required: true
             default: 11
 
+        MAV_AIRFLOW_MODE:
+            description:
+                short: Airflow debug vector display mode
+                long: |
+                    Selects what the custom airflow DEBUG_VECT stream publishes for stock QGroundControl.
+                    Calibrated mode sends AOA and SSA angles in degrees. Raw mode sends the raw AS5600 counts.
+                    In both modes z contains the temperature in degrees Celsius.
+            type: enum
+            values:
+                0: Calibrated angles
+                1: Raw sensor values
+            default: 0
+
         MAV_S_FORWARD:
             description:
                 short: Enable MAVLink forwarding on TELEM2
