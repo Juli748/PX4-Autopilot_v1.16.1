@@ -114,6 +114,7 @@
 #include "streams/SCALED_IMU3.hpp"
 #include "streams/SCALED_PRESSURE.hpp"
 #include "streams/SENSOR_AOA.hpp"
+#include "streams/SENSOR_GROUND_HEIGHTS.hpp"
 #include "streams/SERVO_OUTPUT_RAW.hpp"
 #include "streams/STATUSTEXT.hpp"
 #include "streams/STORAGE_INFORMATION.hpp"
@@ -286,6 +287,9 @@ static const StreamListItem streams_list[] = {
 #if defined(SENSOR_AOA_HPP)
 	create_stream_list_item<MavlinkStreamSensorAoa>(),
 #endif // SENSOR_AOA_HPP
+#if defined(SENSOR_GROUND_HEIGHTS_HPP)
+	create_stream_list_item<MavlinkStreamSensorGroundHeights>(),
+#endif // SENSOR_GROUND_HEIGHTS_HPP
 #if defined(SCALED_PRESSURE2_HPP)
 	create_stream_list_item<MavlinkStreamScaledPressure2>(),
 #endif // SCALED_PRESSURE2
