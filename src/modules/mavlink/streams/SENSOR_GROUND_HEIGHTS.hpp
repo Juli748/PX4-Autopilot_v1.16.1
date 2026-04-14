@@ -113,7 +113,7 @@ private:
 		memcpy(msg.name, "GNDHEIGHTS", 10);
 		msg.data[0] = radar_fresh ? _last_radar.current_distance : NAN;
 		msg.data[1] = lidar_fresh ? _last_lidar.current_distance : NAN;
-		msg.data[2] = (radar_fresh && lidar_fresh) ? (_last_radar.current_distance - _last_lidar.current_distance) : NAN;
+		msg.data[2] = NAN;
 
 		for (size_t i = 3; i < sizeof(msg.data) / sizeof(msg.data[0]); i++) {
 			msg.data[i] = NAN;
