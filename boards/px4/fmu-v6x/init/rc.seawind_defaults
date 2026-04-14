@@ -17,8 +17,29 @@ param set-default CAL_MAG3_PRIO 0
 
 # Default Seawind vane address assignment.
 # Change these parameters if the physical probes are wired the other way around.
+param set-default SENS_AOA_CAL_EN 1
 param set-default SENS_AOA_ADDR 54
 param set-default SENS_SSA_ADDR 64
+
+# Default Seawind airspeed sensor setup.
+param set-default SENS_EN_SDP3X 1
+param set-default SYS_HAS_NUM_ASPD 1
+
+# Default RFbeam V-LD1 radar setup for Seawind.
+# On this board the external serial connector maps to EXT2 (parameter value 401).
+param set-default SENS_EN_VLD1 1
+param set-default SENS_VLD1_CFG 401
+param set-default SENS_VLD1_THRS 30
+param set-default SENS_VLD1_TGFI 1
+param set-default SENS_VLD1_SRNG 1
+param set-default SENS_VLD1_RNG 0
+param set-default SENS_VLD1_MINF 10
+param set-default SENS_VLD1_MAXF 511
+param set-default SENS_VLD1_CHRP 8
+param set-default SENS_VLD1_AVG 15
+
+# Default TF02PRO lidar setup for Seawind.
+param set-default SENS_EN_TF02PRO 1
 
 # Consumed by rc.board_sensors to skip the GPS1 external compass autostart.
 set SEAWIND_DISABLE_EXTERNAL_MAG yes
