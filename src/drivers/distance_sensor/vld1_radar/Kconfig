@@ -1,0 +1,5 @@
+menuconfig DRIVERS_DISTANCE_SENSOR_VLD1_RADAR
+	bool "vld1_radar"
+	default n
+	---help---
+		Enable support for vld1_radar
