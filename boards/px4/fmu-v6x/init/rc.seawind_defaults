@@ -28,6 +28,9 @@ param set-default SENS_SSA_ADDR 54
 param set-default SENS_EN_SDP3X 1
 param set-default SYS_HAS_NUM_ASPD 1
 
+# Play Shorter Tune on successful startup for the Seawind build.
+set STARTUP_TUNE 21
+
 # Default RFbeam V-LD1 radar setup for Seawind.
 # On this board the external serial connector maps to EXT2 (parameter value 401).
 param set-default SENS_EN_VLD1 1
