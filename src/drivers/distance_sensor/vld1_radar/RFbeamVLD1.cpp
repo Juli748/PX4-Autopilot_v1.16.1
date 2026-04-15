@@ -3,6 +3,22 @@
 // TODO: figure out why this is not in header file
 #include <lib/drivers/device/Device.hpp>
 
+namespace
+{
+constexpr uint32_t packet_payload_len(const uint8_t *buffer)
+{
+	return (uint32_t)buffer[4]
+	       | ((uint32_t)buffer[5] << 8)
+	       | ((uint32_t)buffer[6] << 16)
+	       | ((uint32_t)buffer[7] << 24);
+}
+
+bool packet_has_header(const uint8_t *buffer, const char *header)
+{
+	return memcmp(buffer, header, PACKET_HEADER_BYTES) == 0;
+}
+}
+
 RFbeamVLD1::RFbeamVLD1(const char *port, uint8_t rotation)
 	: ModuleParams(nullptr), ScheduledWorkItem(MODULE_NAME, px4::serial_port_to_wq(port)), _px4_rangefinder(0, rotation)
 {
@@ -40,22 +56,21 @@ int RFbeamVLD1::init()
 	ModuleParams::updateParams();
 
 	// Open serial port before writing to it
-	openSerialPort();
+	if (openSerialPort() != PX4_OK) {
+		return PX4_ERROR;
+	}
+
+	tcflush(_fd, TCIFLUSH);
 
 	/* ------------------------- Initialization command ------------------------- */
 
-	int bytes_written = ::write(_fd, _cmd_INIT_default, INIT_PACKET_BYTES);
-
-	if (bytes_written != INIT_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("init cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(_cmd_INIT_default, INIT_PACKET_BYTES, "INIT") != PX4_OK) {
+		return PX4_ERROR;
 	}
 
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
+	if (readVersionMessage(RFBEAM_SETUP_CMD_WAIT_US) != PX4_OK) {
+		return PX4_ERROR;
+	}
 
 	/* --------------------------- Target filter mode --------------------------- */
 
@@ -83,18 +98,9 @@ int RFbeamVLD1::init()
 		return PX4_ERROR;
 	}
 
-	bytes_written = ::write(_fd, TGFI_msg, TGFI_PACKET_BYTES);
-
-	if (bytes_written != TGFI_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("TGFI cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(TGFI_msg, TGFI_PACKET_BYTES, "TGFI") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 	/* ------------------------------- Range mode ------------------------------- */
 
@@ -120,18 +126,9 @@ int RFbeamVLD1::init()
 		return PX4_ERROR;
 	}
 
-	bytes_written = ::write(_fd, RRAI_msg, RRAI_PACKET_BYTES);
-
-	if (bytes_written != RRAI_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("RRAI cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(RRAI_msg, RRAI_PACKET_BYTES, "RRAI") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 	/* --------------------------- Short range filter --------------------------- */
 
@@ -153,18 +150,9 @@ int RFbeamVLD1::init()
 		return PX4_ERROR;
 	}
 
-	bytes_written = ::write(_fd, SRDF_msg, SRDF_PACKET_BYTES);
-
-	if (bytes_written != SRDF_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("SRDF cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(SRDF_msg, SRDF_PACKET_BYTES, "SRDF") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 	/* -------------------------- Minimum range filter -------------------------- */
 
@@ -196,18 +184,9 @@ int RFbeamVLD1::init()
 		}
 	}
 
-	bytes_written = ::write(_fd, MIRA_msg, MIRA_PACKET_BYTES);
-
-	if (bytes_written != MIRA_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("MIRA cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(MIRA_msg, MIRA_PACKET_BYTES, "MIRA") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 	/* -------------------------- Maximum range filter -------------------------- */
 
@@ -239,18 +218,9 @@ int RFbeamVLD1::init()
 		}
 	}
 
-	bytes_written = ::write(_fd, MARA_msg, MARA_PACKET_BYTES);
-
-	if (bytes_written != MARA_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("MARA cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(MARA_msg, MARA_PACKET_BYTES, "MARA") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 	/* ---------------------------- Threshold offset ---------------------------- */
 
@@ -275,18 +245,15 @@ int RFbeamVLD1::init()
 		}
 	}
 
-	bytes_written = ::write(_fd, THOF_msg, THOF_PACKET_BYTES);
-
-	if (bytes_written != THOF_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("THOF cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(THOF_msg, THOF_PACKET_BYTES, "THOF") != PX4_OK) {
+		return PX4_ERROR;
 	}
 
-	// TODO: check for response from sensor
+	/* --------------------------- Distance precision --------------------------- */
 
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
+	if (sendCommandAndExpectResponse(_cmd_PREC_default, PREC_PACKET_BYTES, "PREC") != PX4_OK) {
+		return PX4_ERROR;
+	}
 
 	/* ---------------------------- Chirp integration --------------------------- */
 
@@ -311,18 +278,9 @@ int RFbeamVLD1::init()
 		}
 	}
 
-	bytes_written = ::write(_fd, INTN_msg, INTN_PACKET_BYTES);
-
-	if (bytes_written != INTN_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("INTN cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(INTN_msg, INTN_PACKET_BYTES, "INTN") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 
 	/* --------------------------- Distance averaging --------------------------- */
@@ -348,18 +306,9 @@ int RFbeamVLD1::init()
 		}
 	}
 
-	bytes_written = ::write(_fd, RAVG_msg, RAVG_PACKET_BYTES);
-
-	if (bytes_written != RAVG_PACKET_BYTES) {
-		perf_count(_comms_errors);
-		PX4_ERR("RAVG cmd write fail %d", bytes_written);
-		return bytes_written;
+	if (sendCommandAndExpectResponse(RAVG_msg, RAVG_PACKET_BYTES, "RAVG") != PX4_OK) {
+		return PX4_ERROR;
 	}
-
-	// TODO: check for response from sensor
-
-	// Wait to give the sensor some time to process
-	px4_usleep(RFBEAM_SETUP_CMD_WAIT_US);
 
 
 	/* ----------------------------------- End ---------------------------------- */
@@ -394,9 +343,6 @@ int RFbeamVLD1::init()
 
 int RFbeamVLD1::measure()
 {
-	// Flush the receive buffer
-	tcflush(_fd, TCIFLUSH);
-
 	int bytes_written = ::write(_fd, _cmd_GNFD_PDAT, GNFD_PACKET_BYTES);
 
 	if (bytes_written != GNFD_PACKET_BYTES) {
@@ -405,7 +351,8 @@ int RFbeamVLD1::measure()
 		return bytes_written;
 	}
 
-	// _read_buffer_len = 0;
+	_measurement_time = hrt_absolute_time();
+	_read_buffer_len = 0;
 	return PX4_OK;
 }
 
@@ -413,97 +360,259 @@ int RFbeamVLD1::collect()
 {
 	perf_begin(_sample_perf);
 
-	// Check the number of bytes available in the buffer
-	int bytes_available = 0;
-	::ioctl(_fd, FIONREAD, (unsigned long)&bytes_available);
-
-	if (!bytes_available) {
-		PX4_ERR("nothing in RX buffer");
-		perf_end(_sample_perf);
-		return PX4_ERROR;
-	}
-
-	PX4_DEBUG("bytes_available: %d:", bytes_available);
-
-	// int64_t read_elapsed = hrt_elapsed_time(&_last_read_time);
-
-	_read_time = hrt_absolute_time(); // TODO: e.g. LeddarOne driver sets timestamp in measure()
-
-	const int buffer_size = sizeof(_read_buffer);
-
-	/* const int message_size = sizeof(PDAT_msg);
-	PX4_DEBUG("message_size: %d:", message_size); */
-
-	// int bytes_read = ::read(_fd, _read_buffer + _read_buffer_len, buffer_size - _read_buffer_len);
-	int bytes_read = ::read(_fd, _read_buffer, buffer_size);
-
-	PX4_DEBUG("bytes_read: %d:", bytes_read);
+	const ssize_t bytes_read = ::read(_fd, _read_buffer + _read_buffer_len, sizeof(_read_buffer) - _read_buffer_len);
 
 	if (bytes_read < 0) {
-		perf_count(_comms_errors);
-		perf_end(_sample_perf);
-
-		return PX4_ERROR;
-
-		/* // Only throw error on timeout
-		if (read_elapsed > (_interval_us * 2)) {
-			PX4_DEBUG("timeout on read");
-			return bytes_read;
-
-		} else {
-			PX4_DEBUG("read error: %d", bytes_read);
+		if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+			perf_end(_sample_perf);
 			return -EAGAIN;
 		}
 
-		} else if (bytes_read == 0) {
-		PX4_DEBUG("0 bytes read");
-		return -EAGAIN; */
-	}
-
-	/* _read_buffer_len += bytes_read;
-
-	if (_read_buffer_len < message_size) {
-		PX4_DEBUG("incomplete read");
-		// Return on next scheduled cycle to collect remaining data
-		return -EAGAIN;
-	}
-
-	_last_read_time = hrt_absolute_time();
-
-	float distance_m = 5.0f;
-
-	PDAT_msg *msg = nullptr;
-	msg = (PDAT_msg *)_read_buffer;
-
-	distance_m = msg->distance;
-
-	PX4_DEBUG("distance_m: %f:", (double)distance_m); */
-
-	else if (bytes_read != (RESP_PACKET_BYTES + PDAT_PACKET_BYTES)) {
-		PX4_DEBUG("no target detected, bytes read: %d", bytes_read);
+		perf_count(_comms_errors);
 		perf_end(_sample_perf);
 		return PX4_ERROR;
 	}
 
-	uint8_t _read_buffer_distance[sizeof(float)] = {}; // should be 4 bytes according to sensor datasheet
+	if (bytes_read == 0) {
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
 
-	_read_buffer_distance[0] = _read_buffer[RESP_PACKET_BYTES + PACKET_PAYLOAD_START_IDX + 0];
-	_read_buffer_distance[1] = _read_buffer[RESP_PACKET_BYTES + PACKET_PAYLOAD_START_IDX + 1];
-	_read_buffer_distance[2] = _read_buffer[RESP_PACKET_BYTES + PACKET_PAYLOAD_START_IDX + 2];
-	_read_buffer_distance[3] = _read_buffer[RESP_PACKET_BYTES + PACKET_PAYLOAD_START_IDX + 3];
+	_read_buffer_len += bytes_read;
 
-	// TODO: implement the above in a more elegant way (casting buffer i.e. array ptr to PDAT_msg ptr, as in code commented out above)
+	size_t start = 0;
 
-	// float distance_m = *((float *)_read_buffer_distance);
+	while ((start + PACKET_HEADER_BYTES) <= _read_buffer_len) {
+		if (packet_has_header(&_read_buffer[start], "RESP")) {
+			break;
+		}
 
-	float distance_m;
-	memcpy(&distance_m, _read_buffer_distance, sizeof(distance_m));
+		start++;
+	}
 
-	// Send via uORB
+	if (start > 0) {
+		memmove(_read_buffer, _read_buffer + start, _read_buffer_len - start);
+		_read_buffer_len -= start;
+	}
+
+	if (_read_buffer_len < RESP_PACKET_BYTES) {
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
+
+	if (!packet_has_header(_read_buffer, "RESP")) {
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
+
+	const uint32_t resp_payload_len = packet_payload_len(_read_buffer);
+
+	if (resp_payload_len != 1) {
+		perf_count(_comms_errors);
+		memmove(_read_buffer, _read_buffer + 1, _read_buffer_len - 1);
+		_read_buffer_len--;
+		perf_end(_sample_perf);
+		return PX4_ERROR;
+	}
+
+	const size_t resp_total_size = PACKET_PAYLOAD_START_IDX + resp_payload_len;
+
+	if (_read_buffer_len < resp_total_size) {
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
+
+	if (_read_buffer_len < (resp_total_size + PACKET_PAYLOAD_START_IDX)) {
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
+
+	if (_read_buffer_len < (resp_total_size + PDAT_PACKET_BYTES)) {
+		if (hrt_elapsed_time(&_measurement_time) > RFBEAM_READ_TIMEOUT_US) {
+			_read_buffer_len = 0;
+			perf_end(_sample_perf);
+			return PX4_OK;
+		}
+
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
+
+	const uint8_t *pdat = _read_buffer + resp_total_size;
+
+	if (!packet_has_header(pdat, "PDAT")) {
+		perf_count(_comms_errors);
+		memmove(_read_buffer, _read_buffer + 1, _read_buffer_len - 1);
+		_read_buffer_len--;
+		perf_end(_sample_perf);
+		return PX4_ERROR;
+	}
+
+	const uint32_t pdat_payload_len = packet_payload_len(pdat);
+
+	if ((pdat_payload_len != 0) && (pdat_payload_len != sizeof(PDAT_msg))) {
+		perf_count(_comms_errors);
+		memmove(_read_buffer, _read_buffer + 1, _read_buffer_len - 1);
+		_read_buffer_len--;
+		perf_end(_sample_perf);
+		return PX4_ERROR;
+	}
+
+	if (pdat_payload_len == 0) {
+		_read_buffer_len = 0;
+		perf_end(_sample_perf);
+		return PX4_OK;
+	}
+
+	if (_read_buffer_len < (resp_total_size + PACKET_PAYLOAD_START_IDX + pdat_payload_len)) {
+		perf_end(_sample_perf);
+		return -EAGAIN;
+	}
+
+	float distance_m = NAN;
+	memcpy(&distance_m, pdat + PACKET_PAYLOAD_START_IDX, sizeof(distance_m));
+
+	_read_time = hrt_absolute_time();
 	_px4_rangefinder.update(_read_time, distance_m);
+	_read_buffer_len = 0;
 
 	perf_end(_sample_perf);
+	return PX4_OK;
+}
 
+int RFbeamVLD1::readPacket(const char *expected_header, uint8_t *buffer, size_t buffer_size, size_t &packet_size,
+			   hrt_abstime timeout_us)
+{
+	packet_size = 0;
+	size_t buffer_len = 0;
+	const hrt_abstime start = hrt_absolute_time();
+
+	while (hrt_elapsed_time(&start) < timeout_us) {
+		const ssize_t bytes_read = ::read(_fd, buffer + buffer_len, buffer_size - buffer_len);
+
+		if (bytes_read < 0) {
+			if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+				px4_usleep(1000);
+				continue;
+			}
+
+			perf_count(_comms_errors);
+			return PX4_ERROR;
+		}
+
+		if (bytes_read == 0) {
+			px4_usleep(1000);
+			continue;
+		}
+
+		buffer_len += bytes_read;
+
+		size_t start_idx = 0;
+
+		while ((start_idx + PACKET_HEADER_BYTES) <= buffer_len) {
+			if (packet_has_header(&buffer[start_idx], expected_header)) {
+				break;
+			}
+
+			start_idx++;
+		}
+
+		if (start_idx > 0) {
+			memmove(buffer, buffer + start_idx, buffer_len - start_idx);
+			buffer_len -= start_idx;
+		}
+
+		if (buffer_len < PACKET_PAYLOAD_START_IDX) {
+			continue;
+		}
+
+		const uint32_t payload_len = packet_payload_len(buffer);
+		const size_t total_size = PACKET_PAYLOAD_START_IDX + payload_len;
+
+		if (total_size > buffer_size) {
+			perf_count(_comms_errors);
+			return PX4_ERROR;
+		}
+
+		if (buffer_len < total_size) {
+			continue;
+		}
+
+		packet_size = total_size;
+		return PX4_OK;
+	}
+
+	return PX4_ERROR;
+}
+
+int RFbeamVLD1::readResponse(uint8_t &error_code, hrt_abstime timeout_us)
+{
+	uint8_t buffer[RESP_PACKET_BYTES] {};
+	size_t packet_size = 0;
+
+	if (readPacket("RESP", buffer, sizeof(buffer), packet_size, timeout_us) != PX4_OK) {
+		PX4_ERR("RESP read timeout");
+		return PX4_ERROR;
+	}
+
+	if ((packet_size != RESP_PACKET_BYTES) || (packet_payload_len(buffer) != 1)) {
+		perf_count(_comms_errors);
+		PX4_ERR("RESP malformed");
+		return PX4_ERROR;
+	}
+
+	error_code = buffer[PACKET_PAYLOAD_START_IDX];
+	return PX4_OK;
+}
+
+int RFbeamVLD1::sendCommandAndExpectResponse(const uint8_t *command, size_t command_size, const char *command_name,
+					     hrt_abstime timeout_us)
+{
+	const int bytes_written = ::write(_fd, command, command_size);
+
+	if (bytes_written != (int)command_size) {
+		perf_count(_comms_errors);
+		PX4_ERR("%s cmd write fail %d", command_name, bytes_written);
+		return PX4_ERROR;
+	}
+
+	uint8_t error_code = 0xff;
+
+	if (readResponse(error_code, timeout_us) != PX4_OK) {
+		PX4_ERR("%s cmd no RESP", command_name);
+		return PX4_ERROR;
+	}
+
+	if (error_code != 0) {
+		perf_count(_comms_errors);
+		PX4_ERR("%s RESP error %u", command_name, error_code);
+		return PX4_ERROR;
+	}
+
+	return PX4_OK;
+}
+
+int RFbeamVLD1::readVersionMessage(hrt_abstime timeout_us)
+{
+	uint8_t buffer[64] {};
+	size_t packet_size = 0;
+
+	if (readPacket("VERS", buffer, sizeof(buffer), packet_size, timeout_us) != PX4_OK) {
+		PX4_ERR("VERS read timeout");
+		return PX4_ERROR;
+	}
+
+	if (packet_payload_len(buffer) == 0 || packet_size > sizeof(buffer)) {
+		perf_count(_comms_errors);
+		PX4_ERR("VERS malformed");
+		return PX4_ERROR;
+	}
+
+	char version[64] {};
+	const uint32_t payload_len = packet_payload_len(buffer);
+	const size_t version_len = (payload_len < (sizeof(version) - 1)) ? payload_len : (sizeof(version) - 1);
+	memcpy(version, buffer + PACKET_PAYLOAD_START_IDX, version_len);
+	PX4_INFO("sensor version: %s", version);
 	return PX4_OK;
 }
 
@@ -536,30 +645,32 @@ int RFbeamVLD1::openSerialPort(const speed_t speed)
 	int termios_state;
 
 	// Store the current port configuration attributes
-	tcgetattr(_fd, &uart_config);
+	if (tcgetattr(_fd, &uart_config) != 0) {
+		PX4_ERR("Unable to get termios (%i)", errno);
+		::close(_fd);
+		_fd = -1;
+		return PX4_ERROR;
+	}
 
 	/* Input flags (turn off input processing):
 	Convert break to null byte, no CR to NL translation,
 	No NL to CR translation, don't mark parity errors or breaks
 	No input parity check, don't strip high bit off,
 	No XON/XOFF software flow control */
-	// uart_config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON | IXOFF | IXANY);
+	uart_config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON | IXOFF | IXANY);
 
 	// Output flags (turn off output processing):
-	// uart_config.c_oflag &= ~OPOST;
-	// uart_config.c_oflag = 0;
-	// Clear ONLCR flag (which appends a CR for every LF)
-	uart_config.c_oflag &= ~ONLCR;
+	uart_config.c_oflag &= ~(ONLCR | OPOST);
 
 	// 8 data bits
-	// uart_config.c_cflag &= ~CSIZE;
-	// uart_config.c_cflag |= CS8;
+	uart_config.c_cflag &= ~CSIZE;
+	uart_config.c_cflag |= CS8;
 
 	// Enable receiver
-	// uart_config.c_cflag |= CREAD;
+	uart_config.c_cflag |= CREAD;
 
 	// Ignore modem status lines
-	// uart_config.c_cflag |= CLOCAL;
+	uart_config.c_cflag |= CLOCAL;
 
 	// One stop bit (clear 2 stop bits flag)
 	uart_config.c_cflag &= ~CSTOPB;
@@ -575,7 +686,7 @@ int RFbeamVLD1::openSerialPort(const speed_t speed)
 	/* Turn off line processing:
 	Echo off, echo newline off, canonical mode off, extended input processing off, signal chars off
 	*/
-	// uart_config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+	uart_config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
 
 	// Set the input baud rate in the uart_config struct
 	termios_state = cfsetispeed(&uart_config, speed);
@@ -614,7 +725,11 @@ int RFbeamVLD1::openSerialPort(const speed_t speed)
 void RFbeamVLD1::Run()
 {
 	// Ensure the serial port is open
-	openSerialPort();
+	if (openSerialPort() != PX4_OK) {
+		perf_count(_comms_errors);
+		start();
+		return;
+	}
 
 	// Collection phase
 	if (_collect_phase) {
@@ -625,9 +740,7 @@ void RFbeamVLD1::Run()
 			// TODO: the code in collect() that would trigger this case is currently commented out
 			if (ret == -EAGAIN) {
 				PX4_DEBUG("trying read again");
-				// Reschedule to grab the missing bits, time to transmit 9 bytes @ 115200 bps // TODO: choose right interval
-				ScheduleClear();
-				ScheduleOnInterval(7_ms, 87 * 9);
+				ScheduleDelayed(5_ms);
 			}
 
 			// Case 2/2: data collection error (timeout)

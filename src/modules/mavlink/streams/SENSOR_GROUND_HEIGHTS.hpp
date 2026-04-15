@@ -68,8 +68,6 @@ private:
 
 	bool send() override
 	{
-		bool updated = false;
-
 		for (int i = 0; i < _distance_sensor_subs.size(); i++) {
 			distance_sensor_s dist_sensor{};
 
@@ -81,22 +79,16 @@ private:
 				switch (dist_sensor.type) {
 				case distance_sensor_s::MAV_DISTANCE_SENSOR_RADAR:
 					_last_radar = dist_sensor;
-					updated = true;
 					break;
 
 				case distance_sensor_s::MAV_DISTANCE_SENSOR_LASER:
 					_last_lidar = dist_sensor;
-					updated = true;
 					break;
 
 				default:
 					break;
 				}
 			}
-		}
-
-		if (!updated) {
-			return false;
 		}
 
 		const hrt_abstime now = hrt_absolute_time();

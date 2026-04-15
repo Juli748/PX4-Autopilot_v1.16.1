@@ -2,6 +2,9 @@
 
 #include <termios.h>
 #include <unistd.h>
+#include <cmath>
+#include <cerrno>
+#include <cstring>
 
 #include <lib/perf/perf_counter.h>
 #include <lib/drivers/rangefinder/PX4Rangefinder.hpp>
@@ -55,6 +58,9 @@ using namespace time_literals;
 
 // Multiplicative factor to increase update interval so that sensor doesn't run at full capacity
 #define RFBEAM_MEASURE_INTERVAL_MULT	1.2
+
+// Maximum time to wait for a measurement response before starting a new cycle.
+#define RFBEAM_READ_TIMEOUT_US		200_ms
 
 /* ----------------------- Default, max, min settings ----------------------- */
 
@@ -215,17 +221,24 @@ private:
 	 */
 	int restoreFactorySettings();
 
+	int readPacket(const char *expected_header, uint8_t *buffer, size_t buffer_size, size_t &packet_size,
+		      hrt_abstime timeout_us);
+	int readResponse(uint8_t &error_code, hrt_abstime timeout_us);
+	int sendCommandAndExpectResponse(const uint8_t *command, size_t command_size, const char *command_name,
+				       hrt_abstime timeout_us = RFBEAM_SETUP_CMD_WAIT_US);
+	int readVersionMessage(hrt_abstime timeout_us);
+
 	PX4Rangefinder _px4_rangefinder;
 
 	char _port[20] = {};
 
 	int _fd = -1;
 
-	uint8_t _read_buffer[50] = {}; // TODO: don't hardcode size
-	// uint8_t _read_buffer_len = 0;
+	uint8_t _read_buffer[64] = {};
+	size_t _read_buffer_len{0};
 
-	// hrt_abstime _last_read_time = 0;
 	hrt_abstime _read_time = 0;
+	hrt_abstime _measurement_time = 0;
 
 	int _interval_us = RFBEAM_MAX_MEASURE_INTERVAL_MS;
 
