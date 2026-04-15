@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-#include "logged_topics.h"
+#include "this .h"
 #include "messages.h"
 
 #include <parameters/param.h>
@@ -120,6 +120,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("rtl_time_estimate", 1000);
 	add_topic("rtl_status", 2000);
 	add_optional_topic("sensor_airflow", 100);
+	add_optional_topic("sensor_airflow_angles", 100);
 	add_topic("sensor_combined");
 	add_optional_topic("sensor_correction");
 	add_optional_topic("sensor_gyro_fft", 50);
@@ -197,7 +198,7 @@ void LoggedTopics::add_default_topics()
 	// log all raw sensors at minimal rate (at least 1 Hz)
 	add_topic_multi("battery_status", 200, 3);
 	add_topic_multi("differential_pressure", 1000, 2);
-	add_topic_multi("distance_sensor", 1000, 2);
+	add_topic_multi("distance_sensor", 1000, 4);
 	add_optional_topic_multi("sensor_accel", 1000, 4);
 	add_optional_topic_multi("sensor_aoa", 100);
 	add_topic_multi("sensor_baro", 1000, 4);
