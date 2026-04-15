@@ -54,5 +54,9 @@ param set-default SENS_EN_MCP9808 1
 param set-default EKF2_RNG_CTRL 0
 param set-default EKF2_HGT_REF 0
 
+# Default PX4 logging profile for Seawind system identification.
+# 9 = Default log set + System identification.
+param set-default SDLOG_PROFILE 9
+
 # Consumed by rc.board_sensors to skip the GPS1 external compass autostart.
 set SEAWIND_DISABLE_EXTERNAL_MAG yes
