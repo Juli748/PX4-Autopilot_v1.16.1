@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
-#include "this .h"
+#include "logged_topics.h"
 #include "messages.h"
 
 #include <parameters/param.h>
