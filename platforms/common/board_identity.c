@@ -38,6 +38,7 @@
  */
 
 #include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/board_common.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -102,5 +103,37 @@ int board_get_px4_guid_formated(char *format_buffer, int size)
 	int offset = snprintf(format_buffer, size, "%04x", soc_arch_id);
 	size -= offset;
 	return board_get_mfguid_formated(&format_buffer[offset], size);
+}
+#else
+__EXPORT int board_get_px4_guid(px4_guid_t px4_guid)
+{
+	/*
+	 * Provide a generic userspace/SITL fallback. Real boards override this
+	 * with architecture-specific implementations that expose a hardware GUID.
+	 */
+	memset(px4_guid, 0, PX4_GUID_BYTE_LENGTH);
+	px4_guid[0] = (PX4_SOC_ARCH_ID >> 8) & 0xff;
+	px4_guid[1] = PX4_SOC_ARCH_ID & 0xff;
+
+	return PX4_GUID_BYTE_LENGTH;
+}
+
+__EXPORT int board_get_px4_guid_formated(char *format_buffer, int size)
+{
+	px4_guid_t px4_guid;
+	board_get_px4_guid(px4_guid);
+	int offset = 0;
+
+	/* size should be 2 per byte + 1 for termination
+	 * So it needs to be odd
+	 */
+	size = size & 1 ? size : size - 1;
+
+	/* Discard from MSD */
+	for (unsigned i = PX4_GUID_BYTE_LENGTH - size / 2; offset < size && i < PX4_GUID_BYTE_LENGTH; i++) {
+		offset += snprintf(&format_buffer[offset], size - offset, "%02x", px4_guid[i]);
+	}
+
+	return offset;
 }
 #endif

@@ -1074,7 +1074,7 @@ int board_get_mfguid_formated(char *format_buffer, int size); // DEPRICATED use 
  *
  ************************************************************************************/
 
-int board_get_px4_guid(px4_guid_t guid);
+__EXPORT int board_get_px4_guid(px4_guid_t guid);
 
 /************************************************************************************
  * Name: board_get_px4_guid_formated
@@ -1098,7 +1098,7 @@ int board_get_px4_guid(px4_guid_t guid);
  *
  ************************************************************************************/
 
-int board_get_px4_guid_formated(char *format_buffer, int size);
+__EXPORT int board_get_px4_guid_formated(char *format_buffer, int size);
 
 /************************************************************************************
  * Name: board_mcu_version

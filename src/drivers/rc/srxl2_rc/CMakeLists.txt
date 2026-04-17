@@ -31,15 +31,17 @@
 #
 ############################################################################
 
-px4_add_module(
-	MODULE drivers__rc__srxl2_rc
-	MAIN srxl2_rc
-	COMPILE_FLAGS
-	SRCS
-		Srxl2Rc.cpp
-		Srxl2Rc.hpp
-	MODULE_CONFIG
-		module.yaml
-	DEPENDS
-		rc
-)
+if(NOT "${PX4_BOARD}" MATCHES "sitl")
+	px4_add_module(
+		MODULE drivers__rc__srxl2_rc
+		MAIN srxl2_rc
+		COMPILE_FLAGS
+		SRCS
+			Srxl2Rc.cpp
+			Srxl2Rc.hpp
+		MODULE_CONFIG
+			module.yaml
+		DEPENDS
+			rc
+	)
+endif()
