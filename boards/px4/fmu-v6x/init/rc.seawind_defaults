@@ -7,6 +7,13 @@
 param set-default RC_SRXL2_PRT_CFG 103
 param set-default RC_PORT_CONFIG 0
 param set-default RC_INPUT_PROTO 0
+param set-default RC_MAP_FLTMODE 5
+param set-default COM_FLTMODE1 2
+param set-default COM_FLTMODE2 2
+param set-default COM_FLTMODE3 2
+param set-default COM_FLTMODE4 8
+param set-default COM_FLTMODE5 8
+param set-default COM_FLTMODE6 0
 
 # Keep only the internal magnetometer active for Seawind.
 # External magnetometer startup is disabled below via SEAWIND_DISABLE_EXTERNAL_MAG.

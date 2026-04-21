@@ -105,7 +105,7 @@ int board_get_px4_guid_formated(char *format_buffer, int size)
 	return board_get_mfguid_formated(&format_buffer[offset], size);
 }
 #else
-__EXPORT int board_get_px4_guid(px4_guid_t px4_guid)
+__EXPORT __attribute__((weak)) int board_get_px4_guid(px4_guid_t px4_guid)
 {
 	/*
 	 * Provide a generic userspace/SITL fallback. Real boards override this
@@ -118,7 +118,7 @@ __EXPORT int board_get_px4_guid(px4_guid_t px4_guid)
 	return PX4_GUID_BYTE_LENGTH;
 }
 
-__EXPORT int board_get_px4_guid_formated(char *format_buffer, int size)
+__EXPORT __attribute__((weak)) int board_get_px4_guid_formated(char *format_buffer, int size)
 {
 	px4_guid_t px4_guid;
 	board_get_px4_guid(px4_guid);
