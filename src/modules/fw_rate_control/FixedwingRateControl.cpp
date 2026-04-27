@@ -471,7 +471,12 @@ void FixedwingRateControl::Run()
 
 			/* map flaps by default to manual if valid */
 			if (PX4_ISFINITE(_manual_control_setpoint.flaps)) {
-				flaps_control = math::max(_manual_control_setpoint.flaps, 0.f); // do not consider negative switch settings
+				if (_param_fw_flaps_3pos.get()) {
+					flaps_control = 0.5f * (_manual_control_setpoint.flaps + 1.f); // rescale [-1, 1] to [0, 1]
+
+				} else {
+					flaps_control = math::max(_manual_control_setpoint.flaps, 0.f); // do not consider negative switch settings
+				}
 			}
 
 			normalized_unsigned_setpoint_s flaps_setpoint;

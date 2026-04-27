@@ -213,6 +213,7 @@ private:
 		(ParamFloat<px4::params::TRIM_ROLL>) _param_trim_roll,
 		(ParamFloat<px4::params::TRIM_YAW>) _param_trim_yaw,
 
+		(ParamInt<px4::params::FW_FLAPS_3POS>) _param_fw_flaps_3pos,
 		(ParamInt<px4::params::FW_SPOILERS_MAN>) _param_fw_spoilers_man
 	)
 

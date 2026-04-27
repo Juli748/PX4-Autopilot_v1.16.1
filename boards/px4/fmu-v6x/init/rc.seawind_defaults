@@ -8,6 +8,8 @@ param set-default RC_SRXL2_PRT_CFG 103
 param set-default RC_PORT_CONFIG 0
 param set-default RC_INPUT_PROTO 0
 param set-default RC_MAP_FLTMODE 5
+param set-default RC_MAP_FLAPS 7
+param set-default FW_FLAPS_3POS 1
 param set-default COM_FLTMODE1 2
 param set-default COM_FLTMODE2 2
 param set-default COM_FLTMODE3 2
@@ -28,8 +30,19 @@ param set UAVCAN_SUB_MAG 0
 # Change these parameters if the physical probes are wired the other way around.
 param set-default SENS_AOA_CAL_EN 1
 param set-default SENS_AOA_ADDR 64
+param set-default SENS_AOA_RAW_M10 459
+param set-default SENS_AOA_RAW_M5 518
+param set-default SENS_AOA_RAW_0 577
+param set-default SENS_AOA_RAW_5 629
+param set-default SENS_AOA_RAW_10 687
 param set-default SENS_SSA_CAL_EN 1
+param set-default SENS_SSA_SIGN -1
 param set-default SENS_SSA_ADDR 54
+param set-default SENS_SSA_RAW_M10 2534
+param set-default SENS_SSA_RAW_M5 2592
+param set-default SENS_SSA_RAW_0 2650
+param set-default SENS_SSA_RAW_5 2700
+param set-default SENS_SSA_RAW_10 2759
 
 # Default Seawind airspeed sensor setup.
 param set-default SENS_EN_SDP3X 1

@@ -431,6 +431,17 @@ PARAM_DEFINE_FLOAT(FW_MAN_Y_SC, 1.0f);
 PARAM_DEFINE_FLOAT(FW_RLL_TO_YAW_FF, 0.0f);
 
 /**
+ * Manual flaps three-position mapping
+ *
+ * When enabled, the manual flaps input is rescaled from [-1, 1] to [0, 1].
+ * This allows a three-position RC switch to command 0%, 50%, and 100% flaps.
+ *
+ * @boolean
+ * @group FW Rate Control
+ */
+PARAM_DEFINE_INT32(FW_FLAPS_3POS, 0);
+
+/**
  * Spoiler input in manual flight
  *
  * Chose source for manual setting of spoilers in manual flight modes.
