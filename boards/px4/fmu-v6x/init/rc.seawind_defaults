@@ -10,6 +10,8 @@ param set-default RC_INPUT_PROTO 0
 param set-default RC_MAP_FLTMODE 5
 param set-default RC_MAP_FLAPS 7
 param set-default FW_FLAPS_3POS 1
+param set-default CA_SV_FLPRN_EN 1
+param set-default CA_SV_FLPRN_SC 0.5
 param set-default COM_FLTMODE1 2
 param set-default COM_FLTMODE2 2
 param set-default COM_FLTMODE3 2
@@ -51,9 +53,8 @@ param set-default SYS_HAS_NUM_ASPD 1
 # Play Shorter Tune on successful startup for the Seawind build.
 set STARTUP_TUNE 21
 
-# Default RFbeam V-LD1 radar setup for Seawind.
-# On this board the external serial connector maps to EXT2 (parameter value 401).
-param set-default SENS_EN_VLD1 1
+# Default RFbeam V-LD1 radar setup for Seawind is disabled.
+param set-default SENS_EN_VLD1 0
 param set-default SENS_VLD1_CFG 401
 param set-default SENS_VLD1_THRS 30
 param set-default SENS_VLD1_TGFI 1
@@ -64,8 +65,8 @@ param set-default SENS_VLD1_MAXF 511
 param set-default SENS_VLD1_CHRP 8
 param set-default SENS_VLD1_AVG 15
 
-# Default TF02PRO lidar setup for Seawind.
-param set-default SENS_EN_TF02PRO 1
+# Default TF02PRO lidar setup for Seawind is disabled.
+param set-default SENS_EN_TF02PRO 0
 
 # Default MCP9808 temperature sensor setup for Seawind.
 param set-default SENS_EN_MCP9808 1

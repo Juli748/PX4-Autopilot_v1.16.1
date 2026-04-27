@@ -345,6 +345,27 @@ parameters:
             max: 5.0
             default: 0.5
 
+        CA_SV_FLPRN_EN:
+            description:
+                short: Enable Seawind flaperons
+                long: |
+                  When enabled, the left and right ailerons are lowered symmetrically with flap deployment
+                  using CA_SV_FLPRN_SC. Leave disabled for aircraft that do not use this Seawind-style flaperon setup.
+            type: boolean
+            default: 0
+
+        CA_SV_FLPRN_SC:
+            description:
+                short: Seawind flaperon droop scale
+                long: |
+                  Additional symmetric aileron droop applied as flaps deploy.
+                  The droop is scaled by the normalized flaps setpoint, so a value of 0.2 adds 20% aileron down command at full flap.
+            type: float
+            decimal: 2
+            min: 0.0
+            max: 1.0
+            default: 0.0
+
         CA_SV_CS${i}_SPOIL:
             description:
                 short: Control Surface ${i} configuration as spoiler

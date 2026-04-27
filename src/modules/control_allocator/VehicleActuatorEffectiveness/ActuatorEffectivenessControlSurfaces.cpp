@@ -219,15 +219,34 @@ void ActuatorEffectivenessControlSurfaces::applyFlaps(float flaps_control, int f
 		ActuatorVector &actuator_sp)
 {
 	_flaps_setpoint_with_slewrate.update(flaps_control, dt);
+	const float deployed_flap_amount = 1.f - _flaps_setpoint_with_slewrate.getState();
+	const float flaperon_offset = deployed_flap_amount * _param_ca_sv_flprn_sc.get();
 
 	for (int i = 0; i < _count; ++i) {
 		if (_params[i].type == Type::LeftFlap || _params[i].type == Type::RightFlap) {
 			// map [0, 1] to [-1, 1] for pure flaps
 			actuator_sp(i + first_actuator_idx) += (_flaps_setpoint_with_slewrate.getState() * 2.f - 1.f) * _params[i].scale_flap;
 
-		} else {
-			// map [0, 1] to [0, 1] for flaperons (ailerons deflected down)
-			actuator_sp(i + first_actuator_idx) += _flaps_setpoint_with_slewrate.getState() * _params[i].scale_flap;
+			} else {
+				const bool seawind_flaperon_enabled = _param_ca_sv_flprn_en.get()
+					&& (_params[i].type == Type::LeftAileron || _params[i].type == Type::RightAileron);
+
+			if (!seawind_flaperon_enabled) {
+				// map [0, 1] to [0, 1] for flaperons (ailerons deflected down)
+				actuator_sp(i + first_actuator_idx) += _flaps_setpoint_with_slewrate.getState() * _params[i].scale_flap;
+
+			} else {
+				float &surface_sp = actuator_sp(i + first_actuator_idx);
+
+				// Shift the aileron neutral point down with flap deployment while preserving
+				// full upward authority. Final actuator clipping still enforces configured limits.
+				if (surface_sp < 0.f) {
+					surface_sp = flaperon_offset + surface_sp * (1.f + flaperon_offset);
+
+				} else {
+					surface_sp = flaperon_offset + surface_sp * (1.f - flaperon_offset);
+				}
+			}
 		}
 	}
 }
