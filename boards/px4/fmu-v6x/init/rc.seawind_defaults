@@ -79,5 +79,8 @@ param set-default EKF2_HGT_REF 0
 # 9 = Default log set + System identification.
 param set-default SDLOG_PROFILE 9
 
+# Slow the Seawind landing gear motion on dual AUX outputs.
+param set-default CA_GEAR_SLEW 2.0
+
 # Consumed by rc.board_sensors to skip the GPS1 external compass autostart.
 set SEAWIND_DISABLE_EXTERNAL_MAG yes

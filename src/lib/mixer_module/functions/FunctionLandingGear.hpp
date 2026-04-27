@@ -35,6 +35,10 @@
 
 #include "FunctionProviderBase.hpp"
 
+#include <drivers/drv_hrt.h>
+#include <lib/mathlib/mathlib.h>
+#include <lib/slew_rate/SlewRate.hpp>
+#include <parameters/param.h>
 #include <uORB/topics/landing_gear.h>
 
 /**
@@ -48,21 +52,51 @@ public:
 
 	void update() override
 	{
+		const hrt_abstime now = hrt_absolute_time();
 		landing_gear_s landing_gear;
 
 		if (_topic.update(&landing_gear)) {
 			if (landing_gear.landing_gear == landing_gear_s::GEAR_DOWN) {
-				_data = -1.f;
+				_target = -1.f;
 
 			} else if (landing_gear.landing_gear == landing_gear_s::GEAR_UP) {
-				_data = 1.f;
+				_target = 1.f;
 			}
 		}
+
+		float slew_time_s = 0.f;
+
+		if (_param_slew_time != PARAM_INVALID) {
+			param_get(_param_slew_time, &slew_time_s);
+		}
+
+		if (slew_time_s > FLT_EPSILON) {
+			_slew_rate.setSlewRate(2.f / slew_time_s);
+
+			if (_last_update == 0) {
+				_slew_rate.setForcedValue(_target);
+
+			} else {
+				_slew_rate.update(_target, hrt_elapsed_time(&_last_update) * 1e-6f);
+			}
+
+			_data = _slew_rate.getState();
+
+		} else {
+			_slew_rate.setForcedValue(_target);
+			_data = _target;
+		}
+
+		_last_update = now;
 	}
 
 	float value(OutputFunction func) override { return _data; }
 
 private:
 	uORB::Subscription _topic{ORB_ID(landing_gear)};
+	param_t _param_slew_time{param_find("CA_GEAR_SLEW")};
+	SlewRate<float> _slew_rate{-1.f};
+	hrt_abstime _last_update{0};
 	float _data{-1.f};
+	float _target{-1.f};
 };

@@ -104,6 +104,25 @@ parameters:
             max: 10
             default: 0.0
 
+        CA_GEAR_SLEW:
+            description:
+                short: Landing gear slew time
+                long: |
+                  Forces the dedicated Landing Gear output function to take at least the configured time
+                  in seconds to traverse its full range from gear down to gear up or vice versa.
+
+                  This applies to every output channel assigned the Landing Gear function, such as dual gear
+                  outputs on AUX1 and AUX2.
+
+                  Zero means that slew rate limiting is disabled.
+            type: float
+            decimal: 2
+            increment: 0.05
+            unit: s
+            min: 0.0
+            max: 10.0
+            default: 0.0
+
 
         # (MC) Rotors
         CA_ROTOR_COUNT:
