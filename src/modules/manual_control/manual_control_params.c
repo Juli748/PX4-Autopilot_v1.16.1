@@ -75,3 +75,28 @@ PARAM_DEFINE_FLOAT(MAN_KILL_GEST_T, -1.f);
  * @group Manual Control
  */
 PARAM_DEFINE_FLOAT(MAN_DEADZONE, 0.1f);
+
+/**
+ * Use AUX6 as a momentary landing gear button
+ *
+ * When enabled, AUX6 is interpreted as a single gear button:
+ * a short press commands gear down, while a long press commands gear up.
+ *
+ * @boolean
+ * @group Manual Control
+ */
+PARAM_DEFINE_INT32(MAN_GEAR_AUX6, 0);
+
+/**
+ * Long press threshold for AUX6 landing gear button
+ *
+ * If MAN_GEAR_AUX6 is enabled, holding AUX6 active for at least this long
+ * commands gear up. Releasing earlier commands gear down.
+ *
+ * @group Manual Control
+ * @unit s
+ * @decimal 2
+ * @min 0.1
+ * @max 5.0
+ */
+PARAM_DEFINE_FLOAT(MAN_GEAR_LP_T, 0.7f);

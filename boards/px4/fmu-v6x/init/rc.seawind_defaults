@@ -8,8 +8,12 @@ param set-default RC_SRXL2_PRT_CFG 103
 param set-default RC_PORT_CONFIG 0
 param set-default RC_INPUT_PROTO 0
 param set-default RC_MAP_FLTMODE 5
+param set RC_MAP_AUX6 6
+param set RC_MAP_GEAR_SW 0
 param set-default RC_MAP_FLAPS 7
 param set-default FW_FLAPS_3POS 1
+param set MAN_GEAR_AUX6 1
+param set MAN_GEAR_LP_T 1.5
 param set-default CA_SV_FLPRN_EN 1
 param set-default CA_SV_FLPRN_SC 0.5
 param set-default COM_FLTMODE1 2

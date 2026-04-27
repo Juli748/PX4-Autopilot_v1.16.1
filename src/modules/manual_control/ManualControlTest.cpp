@@ -49,6 +49,8 @@ static constexpr uint8_t NAVIGATION_STATE_POSCTL = vehicle_status_s::NAVIGATION_
 static constexpr uint8_t NAVIGATION_STATE_AUTO_MISSION = vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION;
 static constexpr uint8_t NAVIGATION_STATE_AUTO_LOITER = vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER;
 static constexpr uint8_t NAVIGATION_STATE_ACRO = vehicle_status_s::NAVIGATION_STATE_ACRO;
+static constexpr uint8_t GEAR_UP = landing_gear_s::GEAR_UP;
+static constexpr uint8_t GEAR_DOWN = landing_gear_s::GEAR_DOWN;
 
 class TestManualControl : public ManualControl
 {
@@ -81,12 +83,16 @@ public:
 		param_set(param_find("COM_FLTMODE5"), &mode);
 		mode = NAVIGATION_STATE_AUTO_MISSION;
 		param_set(param_find("COM_FLTMODE6"), &mode);
+
+		int32_t gear_aux6 = 0;
+		param_set(param_find("MAN_GEAR_AUX6"), &gear_aux6);
 	}
 
 	uORB::Publication<manual_control_switches_s> _manual_control_switches_pub{ORB_ID(manual_control_switches)};
 	uORB::Publication<manual_control_setpoint_s> _manual_control_input_pub{ORB_ID(manual_control_input)};
 	uORB::SubscriptionData<manual_control_setpoint_s> _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::SubscriptionData<action_request_s> _action_request_sub{ORB_ID(action_request)};
+	uORB::SubscriptionData<landing_gear_s> _landing_gear_sub{ORB_ID(landing_gear)};
 
 	TestManualControl _manual_control;
 	hrt_abstime _timestamp{SOME_TIME};
@@ -326,4 +332,57 @@ TEST_F(SwitchTest, ModeSwitchInitializationArmed)
 	EXPECT_TRUE(_action_request_sub.update());
 	EXPECT_EQ(_action_request_sub.get().action, ACTION_SWITCH_MODE);
 	EXPECT_EQ(_action_request_sub.get().mode, TestManualControl::navStateFromParam(NAVIGATION_STATE_MANUAL));
+}
+
+TEST_F(SwitchTest, Aux6ShortPressExtendsGear)
+{
+	int32_t gear_aux6 = 1;
+	param_set(param_find("MAN_GEAR_AUX6"), &gear_aux6);
+	_manual_control.processInput(_timestamp += 1_s);
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = 1.f});
+	_manual_control_switches_pub.publish({.timestamp_sample = _timestamp});
+	_manual_control.processInput(_timestamp += 10_ms);
+	EXPECT_FALSE(_landing_gear_sub.update());
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = -1.f});
+	_manual_control.processInput(_timestamp += 100_ms);
+	EXPECT_FALSE(_landing_gear_sub.update());
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = 1.f});
+	_manual_control.processInput(_timestamp += 200_ms);
+	EXPECT_TRUE(_landing_gear_sub.update());
+	EXPECT_EQ(_landing_gear_sub.get().landing_gear, GEAR_DOWN);
+}
+
+TEST_F(SwitchTest, Aux6LongPressRetractsGear)
+{
+	int32_t gear_aux6 = 1;
+	param_set(param_find("MAN_GEAR_AUX6"), &gear_aux6);
+	_manual_control.processInput(_timestamp += 1_s);
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = 1.f});
+	_manual_control_switches_pub.publish({.timestamp_sample = _timestamp});
+	_manual_control.processInput(_timestamp += 10_ms);
+	EXPECT_FALSE(_landing_gear_sub.update());
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = -1.f});
+	_manual_control.processInput(_timestamp += 100_ms);
+	EXPECT_FALSE(_landing_gear_sub.update());
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = -1.f});
+	_manual_control.processInput(_timestamp += 800_ms);
+	EXPECT_TRUE(_landing_gear_sub.update());
+	EXPECT_EQ(_landing_gear_sub.get().landing_gear, GEAR_UP);
+
+	_manual_control_input_pub.publish({.timestamp_sample = _timestamp, .valid = true,
+		.data_source = manual_control_setpoint_s::SOURCE_RC, .aux6 = 1.f});
+	_manual_control.processInput(_timestamp += 100_ms);
+	EXPECT_FALSE(_landing_gear_sub.update());
 }

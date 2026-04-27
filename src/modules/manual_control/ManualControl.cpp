@@ -134,6 +134,7 @@ void ManualControl::processInput(hrt_abstime now)
 
 		_selector.setpoint().timestamp = now;
 		_manual_control_setpoint_pub.publish(_selector.setpoint());
+		processGearButton(_selector.setpoint(), now);
 
 		// Attach scheduling to new samples of the chosen input
 		const int instance = _selector.instance();
@@ -167,11 +168,51 @@ void ManualControl::processInput(hrt_abstime now)
 		_stick_disarm_hysteresis.set_state_and_update(false, now);
 		_stick_kill_hysteresis.set_state_and_update(false, now);
 		_button_arm_hysteresis.set_state_and_update(false, now);
+		_gear_button_pressed = false;
+		_gear_button_long_press_sent = false;
+		_gear_button_press_start = 0;
 	}
 
 	processSwitches(now);
 
 	_timestamp_last_loop = now;
+}
+
+void ManualControl::processGearButton(const manual_control_setpoint_s &input, hrt_abstime now)
+{
+	if (!_param_man_gear_aux6.get()) {
+		_gear_button_pressed = false;
+		_gear_button_long_press_sent = false;
+		_gear_button_press_start = 0;
+		return;
+	}
+
+	// Seawind AUX6 button is wired/configured active-low on the current radio setup:
+	// released sits high, pressing drives the channel low.
+	const bool button_pressed = PX4_ISFINITE(input.aux6) && input.aux6 < -0.5f;
+	const hrt_abstime long_press_threshold = static_cast<hrt_abstime>(_param_man_gear_lp_t.get() * 1e6f);
+
+	if (button_pressed && !_gear_button_pressed) {
+		_gear_button_pressed = true;
+		_gear_button_long_press_sent = false;
+		_gear_button_press_start = now;
+	}
+
+	if (_gear_button_pressed && !_gear_button_long_press_sent && _gear_button_press_start != 0
+	    && (now - _gear_button_press_start) >= long_press_threshold) {
+		publishLandingGear(landing_gear_s::GEAR_UP);
+		_gear_button_long_press_sent = true;
+	}
+
+	if (!button_pressed && _gear_button_pressed) {
+		if (!_gear_button_long_press_sent) {
+			publishLandingGear(landing_gear_s::GEAR_DOWN);
+		}
+
+		_gear_button_pressed = false;
+		_gear_button_long_press_sent = false;
+		_gear_button_press_start = 0;
+	}
 }
 
 void ManualControl::processSwitches(hrt_abstime &now)
@@ -253,7 +294,8 @@ void ManualControl::processSwitches(hrt_abstime &now)
 					sendActionRequest(action_request_s::ACTION_TERMINATION, action_request_s::SOURCE_RC_SWITCH);
 				}
 
-				if (switches.gear_switch != _previous_switches.gear_switch
+				if (!_param_man_gear_aux6.get()
+				    && switches.gear_switch != _previous_switches.gear_switch
 				    && _previous_switches.gear_switch != manual_control_switches_s::SWITCH_POS_NONE) {
 
 					if (switches.gear_switch == manual_control_switches_s::SWITCH_POS_ON) {

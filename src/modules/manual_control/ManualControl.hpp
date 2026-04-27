@@ -88,6 +88,7 @@ private:
 	void updateParams() override;
 	void processStickArming(const manual_control_setpoint_s &input);
 	void processSwitches(hrt_abstime &now);
+	void processGearButton(const manual_control_setpoint_s &input, hrt_abstime now);
 
 	void evaluateModeSlot(uint8_t mode_slot);
 	void sendActionRequest(int8_t action, int8_t source, int8_t mode = 0);
@@ -143,6 +144,9 @@ private:
 	uint8_t _system_id{1};
 	bool _rotary_wing{false};
 	bool _vtol{false};
+	bool _gear_button_pressed{false};
+	bool _gear_button_long_press_sent{false};
+	hrt_abstime _gear_button_press_start{0};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::COM_RC_IN_MODE>) _param_com_rc_in_mode,
@@ -157,6 +161,8 @@ private:
 		(ParamInt<px4::params::COM_FLTMODE3>) _param_fltmode_3,
 		(ParamInt<px4::params::COM_FLTMODE4>) _param_fltmode_4,
 		(ParamInt<px4::params::COM_FLTMODE5>) _param_fltmode_5,
-		(ParamInt<px4::params::COM_FLTMODE6>) _param_fltmode_6
+		(ParamInt<px4::params::COM_FLTMODE6>) _param_fltmode_6,
+		(ParamBool<px4::params::MAN_GEAR_AUX6>) _param_man_gear_aux6,
+		(ParamFloat<px4::params::MAN_GEAR_LP_T>) _param_man_gear_lp_t
 	)
 };
